@@ -34,10 +34,14 @@ public class RelatorioService {
         Font infoBoldFont = new Font(Font.HELVETICA, 10, Font.BOLD);
         Font normalFont = new Font(Font.HELVETICA, 8);
 
-        // Título "Resultado Final" COM BORDA
+        // Título "Relação Final" COM BORDA
+        String editalDescricao = turno != null && !turno.isBlank() ? turno : "PROEXC nº 06/2024";
+        String titulo = "Relação Final dos Candidatos Inscritos no Edital " + editalDescricao + 
+                        " - Ingresso no Qualifica Mais EnergIFE";
+        
         PdfPTable titleTable = new PdfPTable(1);
         titleTable.setWidthPercentage(100);
-        PdfPCell titleCell = new PdfPCell(new Phrase("Resultado Final", titleFont));
+        PdfPCell titleCell = new PdfPCell(new Phrase(titulo, titleFont));
         titleCell.setBackgroundColor(CINZA_CLARO);
         titleCell.setHorizontalAlignment(Element.ALIGN_CENTER);
         titleCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
@@ -51,6 +55,13 @@ public class RelatorioService {
         String turnoLine = (turno != null && !turno.isBlank()) ? turno : "";
         DateTimeFormatter dateF = DateTimeFormatter.ofPattern("dd/MM/yyyy");
         DateTimeFormatter timeF = DateTimeFormatter.ofPattern("HH:mm");
+
+        // Ordenar campus alfabeticamente
+        campusList.sort((c1, c2) -> {
+            String n1 = c1 != null ? c1.getNome() : "";
+            String n2 = c2 != null ? c2.getNome() : "";
+            return n1.compareTo(n2);
+        });
 
         for (Campus campus : campusList) {
             List<Candidato> candidatos = grouped.get(campus);
@@ -132,7 +143,7 @@ public class RelatorioService {
 
                     // Classificação
                     PdfPCell cellClassif;
-                    if (c.getSituacao() == SituacaoCandidato.CLASSIFICADO || c.getSituacao() == SituacaoCandidato.HABILITADO) {
+                    if (c.getSituacao() == SituacaoCandidato.CLASSIFICADO) {
                         rank++;
                         cellClassif = new PdfPCell(new Phrase(rank + "°", normalFont));
                     } else {
@@ -172,6 +183,7 @@ public class RelatorioService {
     public void gerarRelatorioPreliminar(Document doc, List<Candidato> candidatos, String editalDescricao) throws DocumentException {
         Font titleFont = new Font(Font.HELVETICA, 14, Font.BOLD);
         Font headerFont = new Font(Font.HELVETICA, 11, Font.BOLD, Color.BLACK);
+        Font infoBoldFont = new Font(Font.HELVETICA, 10, Font.BOLD);
         Font normalFont = new Font(Font.HELVETICA, 9);
 
         // Título com descrição do edital
@@ -194,75 +206,172 @@ public class RelatorioService {
 
         DateTimeFormatter dateTimeF = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
-        // Ordenar candidatos alfabeticamente por nome (ignorando acentos)
-        java.text.Collator collator = java.text.Collator.getInstance(PT_BR);
-        collator.setStrength(java.text.Collator.PRIMARY); // Ignora acentos na comparação
-        
-        candidatos.sort((c1, c2) -> {
-            String n1 = c1.getNome() != null ? c1.getNome() : "";
-            String n2 = c2.getNome() != null ? c2.getNome() : "";
-            return collator.compare(n1.toUpperCase(PT_BR), n2.toUpperCase(PT_BR));
-        });
+        // Agrupar por campus
+        Map<Campus, List<Candidato>> grouped = candidatos.stream()
+            .collect(java.util.stream.Collectors.groupingBy(
+                Candidato::getCampus,
+                java.util.LinkedHashMap::new,
+                java.util.stream.Collectors.toList()));
 
-        // Criar tabela única com todas as colunas
-        PdfPTable table = new PdfPTable(new float[] { 2.5f, 3f, 2f });
-        table.setWidthPercentage(100);
+        // Ordenar campus alfabeticamente
+        java.util.List<Map.Entry<Campus, List<Candidato>>> sortedCampusList = grouped.entrySet().stream()
+            .sorted((e1, e2) -> {
+                String n1 = e1.getKey() != null ? e1.getKey().getNome() : "";
+                String n2 = e2.getKey() != null ? e2.getKey().getNome() : "";
+                return n1.compareTo(n2);
+            })
+            .collect(java.util.stream.Collectors.toList());
 
-        // Cabeçalho da tabela
-        String[] headerTexts = { "Data e Hora da Inscrição", "Nome Completo", "Campus e Turno" };
-        for (String headerText : headerTexts) {
-            PdfPCell cell = new PdfPCell(new Phrase(headerText, headerFont));
-            cell.setBackgroundColor(CINZA_CLARO);
-            cell.setHorizontalAlignment(Element.ALIGN_CENTER);
-            cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
-            cell.setPadding(10);
-            cell.setBorderColor(Color.BLACK);
-            cell.setBorderWidth(2.5f);
-            table.addCell(cell);
-        }
+        for (Map.Entry<Campus, List<Candidato>> campusEntry : sortedCampusList) {
+            Campus campus = campusEntry.getKey();
+            List<Candidato> candidatosCampus = campusEntry.getValue();
 
-        // Adicionar dados dos candidatos
-        for (Candidato c : candidatos) {
-            // Data e Hora da Inscrição
-            String dateTime = "-";
-            if (c.getDataInscricao() != null && c.getHoraInscricao() != null) {
-                dateTime = java.time.LocalDateTime.of(c.getDataInscricao(), c.getHoraInscricao()).format(dateTimeF);
-            } else if (c.getDataInscricao() != null) {
-                dateTime = c.getDataInscricao().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+            String campusName = campus != null ? campus.getNome() : "Sem Campus";
+
+            // Agrupar por turno
+            Map<String, List<Candidato>> byTurno = candidatosCampus.stream()
+                .collect(java.util.stream.Collectors.groupingBy(
+                    c -> normalizeTurno(c.getTurno()),
+                    java.util.LinkedHashMap::new,
+                    java.util.stream.Collectors.toList()));
+
+            for (Map.Entry<String, List<Candidato>> turnoEntry : byTurno.entrySet()) {
+                String turnoName = turnoEntry.getKey();
+                List<Candidato> candidatosTurno = turnoEntry.getValue();
+
+                // Ordenar por ordem de inscrição (mais antigo primeiro)
+                java.text.Collator collator = java.text.Collator.getInstance(PT_BR);
+                collator.setStrength(java.text.Collator.PRIMARY);
+
+                candidatosTurno.sort((c1, c2) -> {
+                    java.time.LocalDate d1 = c1.getDataInscricao();
+                    java.time.LocalDate d2 = c2.getDataInscricao();
+
+                    if (d1 != null && d2 != null) {
+                        int byDate = d1.compareTo(d2);
+                        if (byDate != 0) {
+                            return byDate;
+                        }
+                    } else if (d1 != null) {
+                        return -1;
+                    } else if (d2 != null) {
+                        return 1;
+                    }
+
+                    java.time.LocalTime h1 = c1.getHoraInscricao();
+                    java.time.LocalTime h2 = c2.getHoraInscricao();
+                    if (h1 != null && h2 != null) {
+                        int byTime = h1.compareTo(h2);
+                        if (byTime != 0) {
+                            return byTime;
+                        }
+                    } else if (h1 != null) {
+                        return -1;
+                    } else if (h2 != null) {
+                        return 1;
+                    }
+
+                    String n1 = c1.getNome() != null ? c1.getNome() : "";
+                    String n2 = c2.getNome() != null ? c2.getNome() : "";
+                    return collator.compare(n1.toUpperCase(PT_BR), n2.toUpperCase(PT_BR));
+                });
+
+                // Campus e Turno em UMA LINHA, COM BORDA, EM NEGRITO
+                PdfPTable infoTable = new PdfPTable(1);
+                infoTable.setWidthPercentage(100);
+                PdfPCell infoCell = new PdfPCell(new Phrase("Campus: " + campusName + "     |     " + turnoName, infoBoldFont));
+                infoCell.setBackgroundColor(CINZA_CLARO);
+                infoCell.setHorizontalAlignment(Element.ALIGN_CENTER);
+                infoCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+                infoCell.setPadding(10);
+                infoCell.setBorderColor(Color.BLACK);
+                infoCell.setBorderWidth(2.5f);
+                infoTable.addCell(infoCell);
+                doc.add(infoTable);
+                doc.add(Chunk.NEWLINE);
+
+                // Criar tabela com dados do turno
+                PdfPTable table = new PdfPTable(new float[] { 2.5f, 3f, 1.5f, 2.5f });
+                table.setWidthPercentage(100);
+
+                // Cabeçalho da tabela
+                String[] headerTexts = { "Data e Hora da Inscrição", "Nome Completo", "Classificação", "Situação" };
+                for (String headerText : headerTexts) {
+                    PdfPCell cell = new PdfPCell(new Phrase(headerText, headerFont));
+                    cell.setBackgroundColor(CINZA_CLARO);
+                    cell.setHorizontalAlignment(Element.ALIGN_CENTER);
+                    cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+                    cell.setPadding(10);
+                    cell.setBorderColor(Color.BLACK);
+                    cell.setBorderWidth(2.5f);
+                    table.addCell(cell);
+                }
+
+                // Adicionar dados dos candidatos
+                int rank = 0;
+                for (Candidato c : candidatosTurno) {
+                    // Data e Hora da Inscrição
+                    String dateTime = "-";
+                    if (c.getDataInscricao() != null && c.getHoraInscricao() != null) {
+                        dateTime = java.time.LocalDateTime.of(c.getDataInscricao(), c.getHoraInscricao()).format(dateTimeF);
+                    } else if (c.getDataInscricao() != null) {
+                        dateTime = c.getDataInscricao().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+                    }
+
+                    PdfPCell cellData = new PdfPCell(new Phrase(dateTime, normalFont));
+                    cellData.setHorizontalAlignment(Element.ALIGN_CENTER);
+                    cellData.setVerticalAlignment(Element.ALIGN_MIDDLE);
+                    cellData.setPadding(8);
+                    cellData.setBorderColor(CINZA_ESCURO);
+                    cellData.setBorderWidth(1f);
+                    table.addCell(cellData);
+
+                    // Nome Completo
+                    String nomeUpper = c.getNome() != null ? c.getNome().toUpperCase(PT_BR) : "-";
+                    PdfPCell cellNome = new PdfPCell(new Phrase(nomeUpper, normalFont));
+                    cellNome.setHorizontalAlignment(Element.ALIGN_LEFT);
+                    cellNome.setVerticalAlignment(Element.ALIGN_MIDDLE);
+                    cellNome.setPadding(8);
+                    cellNome.setBorderColor(CINZA_ESCURO);
+                    cellNome.setBorderWidth(1f);
+                    table.addCell(cellNome);
+
+                    // Classificação
+                    PdfPCell cellClassif;
+                    if (c.getSituacao() == SituacaoCandidato.CLASSIFICADO) {
+                        rank++;
+                        cellClassif = new PdfPCell(new Phrase(rank + "°", normalFont));
+                    } else {
+                        cellClassif = new PdfPCell(new Phrase("-", normalFont));
+                    }
+                    cellClassif.setHorizontalAlignment(Element.ALIGN_CENTER);
+                    cellClassif.setVerticalAlignment(Element.ALIGN_MIDDLE);
+                    cellClassif.setPadding(8);
+                    cellClassif.setBorderColor(CINZA_ESCURO);
+                    cellClassif.setBorderWidth(1f);
+                    table.addCell(cellClassif);
+
+                    // Situação
+                    String situ = c.getSituacao().getDescricao();
+                    if (c.getMotivoNaoClassificacao() != null && !c.getMotivoNaoClassificacao().isBlank()) {
+                        situ += " - " + c.getMotivoNaoClassificacao();
+                    }
+                    PdfPCell cellSitu = new PdfPCell(new Phrase(situ, normalFont));
+                    cellSitu.setHorizontalAlignment(Element.ALIGN_CENTER);
+                    cellSitu.setVerticalAlignment(Element.ALIGN_MIDDLE);
+                    cellSitu.setPadding(8);
+                    cellSitu.setBorderColor(CINZA_ESCURO);
+                    cellSitu.setBorderWidth(1f);
+                    table.addCell(cellSitu);
+                }
+
+                doc.add(table);
+                doc.add(Chunk.NEWLINE);
             }
 
-            PdfPCell cellData = new PdfPCell(new Phrase(dateTime, normalFont));
-            cellData.setHorizontalAlignment(Element.ALIGN_CENTER);
-            cellData.setVerticalAlignment(Element.ALIGN_MIDDLE);
-            cellData.setPadding(8);
-            cellData.setBorderColor(CINZA_ESCURO);
-            cellData.setBorderWidth(1f);
-            table.addCell(cellData);
-
-            // Nome Completo
-            String nomeUpper = c.getNome() != null ? c.getNome().toUpperCase(PT_BR) : "-";
-            PdfPCell cellNome = new PdfPCell(new Phrase(nomeUpper, normalFont));
-            cellNome.setHorizontalAlignment(Element.ALIGN_LEFT);
-            cellNome.setVerticalAlignment(Element.ALIGN_MIDDLE);
-            cellNome.setPadding(8);
-            cellNome.setBorderColor(CINZA_ESCURO);
-            cellNome.setBorderWidth(1f);
-            table.addCell(cellNome);
-
-            // Campus e Turno
-            String campusName = c.getCampus() != null ? c.getCampus().getNome() : "Sem Campus";
-            String turnoName = normalizeTurno(c.getTurno());
-            String campusTurnoStr = campusName + " - " + turnoName;
-            PdfPCell cellCampusTurno = new PdfPCell(new Phrase(campusTurnoStr, normalFont));
-            cellCampusTurno.setHorizontalAlignment(Element.ALIGN_CENTER);
-            cellCampusTurno.setVerticalAlignment(Element.ALIGN_MIDDLE);
-            cellCampusTurno.setPadding(8);
-            cellCampusTurno.setBorderColor(CINZA_ESCURO);
-            cellCampusTurno.setBorderWidth(1f);
-            table.addCell(cellCampusTurno);
+            // Page break entre campi
+            doc.newPage();
         }
-
-        doc.add(table);
     }
 
     private String normalizeTurno(String turnoRaw) {
