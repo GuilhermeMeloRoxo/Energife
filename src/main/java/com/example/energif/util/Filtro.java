@@ -88,52 +88,65 @@ public class Filtro {
         }
 
         try (InputStream is = new FileInputStream(xlsxFile);
-                Workbook workbook = new XSSFWorkbook(is)) {
-
-            Sheet sheet = workbook.getNumberOfSheets() > 0 ? workbook.getSheetAt(0) : null;
-            if (sheet == null) {
-                log.warn("Planilha vazia: {}", xlsxFile.getAbsolutePath());
-                return 0;
-            }
-
-            Iterator<Row> rowIt = sheet.iterator();
-            if (!rowIt.hasNext())
-                return 0;
-
-            // read header
-            Row header = rowIt.next();
-            Map<String, Integer> colIndex = mapHeaderIndices(header);
+            Workbook workbook = new XSSFWorkbook(is)) {
 
             int imported = 0;
-            while (rowIt.hasNext()) {
-                Row r = rowIt.next();
-                try {
-                    Candidato c = mapRowToCandidato(r, colIndex);
-                    if (c != null) {
-                        if (targetEdital != null)
-                            c.setEdital(targetEdital);
-                        candidatoRepository.save(c);
+            int totalSheets = workbook.getNumberOfSheets();
 
-                        // Se importamos dentro de um edital, garanta apenas o turno
-                        // exatamente como está no arquivo
-                        if (c.getCampus() != null && c.getEdital() != null) {
-                            if (c.getTurno() != null && !c.getTurno().isBlank()) {
-                                criarTurnoSeNaoExistir(c.getCampus(), c.getEdital(), c.getTurno());
-                            }
-                        }
-
-                        imported++;
-                    }
-                } catch (Exception ex) {
-                    log.warn("Falha ao importar linha {}: {}", r.getRowNum(), ex.getMessage());
+            // ====================================================================
+            // ABRE O LOOP PARA PERCORRER TODAS AS ABAS DO ARQUIVO
+            // ====================================================================
+            for (int i = 0; i < totalSheets; i++) {
+                Sheet sheet = workbook.getSheetAt(i);
+                
+                // Opcional: Se quiser pular a aba geral de respostas brutas que está vazia
+                if (sheet.getSheetName().equalsIgnoreCase("Respostas ao formulário 1") && totalSheets > 1) {
+                    log.info("Ignorando a aba de respostas brutas: {}", sheet.getSheetName());
+                    continue; 
                 }
-            }
+
+                log.info("Processando a Aba [{} / {}]: {}", (i + 1), totalSheets, sheet.getSheetName());
+
+                Iterator<Row> rowIt = sheet.iterator();
+                if (!rowIt.hasNext()) {
+                    continue; // Se esta aba específica estiver vazia, pula para a próxima aba
+                }
+
+                // Lê o cabeçalho desta aba específica
+                Row header = rowIt.next();
+                Map<String, Integer> colIndex = mapHeaderIndices(header);
+
+                // Loop para ler as linhas DA ABA ATUAL
+                while (rowIt.hasNext()) {
+                    Row r = rowIt.next();
+                    try {
+                        // Passa a linha e os índices mapeados desta aba
+                        Candidato c = mapRowToCandidato(r, colIndex);
+                        if (c != null) {
+                            if (targetEdital != null)
+                                c.setEdital(targetEdital);
+                            
+                            candidatoRepository.save(c);
+
+                            if (c.getCampus() != null && c.getEdital() != null) {
+                                if (c.getTurno() != null && !c.getTurno().isBlank()) {
+                                    criarTurnoSeNaoExistir(c.getCampus(), c.getEdital(), c.getTurno());
+                                }
+                            }
+
+                            imported++;
+                        }
+                    } catch (Exception ex) {
+                        log.warn("Falha ao importar linha {} na aba {}: {}", r.getRowNum(), sheet.getSheetName(), ex.getMessage());
+                    }
+                } // Fim do while (linhas da aba)
+                
+            } // Fim do for (abas do arquivo)
 
             log.info("Import finished - {} records imported from {}", imported, xlsxFile.getName());
             return imported;
         }
     }
-
     private Map<String, Integer> mapHeaderIndices(Row header) {
         Map<String, Integer> map = new HashMap<>();
 
@@ -232,12 +245,12 @@ public class Filtro {
                 System.out.println(">>> CPF (aproximado) encontrado na coluna: " + cell.getColumnIndex());
             }
 
-            if (!map.containsKey("situacao") && (normalizedTxt.contains("situacao") || normalizedTxt.contains("status"))) {
+            if (!map.containsKey("situacao") && (normalizedTxt.contains("situacao"))) {
                 map.put("situacao", cell.getColumnIndex());
                 System.out.println(">>> SITUAÇÃO (aproximado) encontrada na coluna: " + cell.getColumnIndex());
             }
 
-            if (!map.containsKey("motivo") && (normalizedTxt.contains("motivo") || normalizedTxt.contains("justificativa") || normalizedTxt.contains("observacao"))) {
+            if (!map.containsKey("motivo") && (normalizedTxt.contains("motivo"))) {
                 map.put("motivo", cell.getColumnIndex());
                 System.out.println(">>> MOTIVO (aproximado) encontrado na coluna: " + cell.getColumnIndex());
             }
@@ -287,7 +300,9 @@ public class Filtro {
             return "";
         }
         String normalized = Normalizer.normalize(raw, Normalizer.Form.NFD);
-        normalized = normalized.replaceAll("\\p{M}+", "");
+        normalized = normalized.replaceAll("\\p{M}+", ""); 
+        normalized = normalized.replaceAll("[\\p{Z}\\s]+", " "); 
+        normalized = normalized.replaceAll("\\p{C}+", ""); 
         return normalized.toLowerCase().trim();
     }
 
@@ -296,42 +311,41 @@ public class Filtro {
      * Tenta encontrar a correspondência exata ou aproximada.
      * Se não conseguir converter, retorna PENDENTE como padrão.
      */
+    private String normalizeStatusText(String raw) {
+        if (raw == null) {
+            return "";
+        }
+        String normalized = Normalizer.normalize(raw, Normalizer.Form.NFD);
+        normalized = normalized.replaceAll("\\p{M}+", "");
+        normalized = normalized.replaceAll("[\\p{Z}\\s]+", " ");
+        normalized = normalized.replaceAll("\\p{C}+", "");
+        return normalized.trim().toUpperCase();
+    }
+
     private SituacaoCandidato converterStringSituacao(String str) {
         if (str == null || str.isBlank()) {
             log.debug("Situação vazia - usando padrão PENDENTE");
             return SituacaoCandidato.PENDENTE;
         }
 
-        String normalized = str.trim().toUpperCase();
-        
-        // Busca exata pelos nomes dos enums
-        try {
-            return SituacaoCandidato.valueOf(normalized);
-        } catch (IllegalArgumentException e) {
-            log.debug("Situação '{}' não encontrada como enum exato, tentando aproximação", str);
-        }
-
-        // Busca aproximada pela descrição
-        for (SituacaoCandidato sit : SituacaoCandidato.values()) {
-            if (sit.getDescricao().equalsIgnoreCase(str)) {
-                log.debug("Situação '{}' convertida para {}", str, sit);
-                return sit;
-            }
-        }
-
-        // Busca parcial
-        if (normalized.contains("CLASSIF")) {
+        String normalized = normalizeStatusText(str);
+        if ("CLASSIFICADO".equals(normalized)) {
             return SituacaoCandidato.CLASSIFICADO;
-        } else if (normalized.contains("HABITL") || normalized.contains("HABILITAD")) {
-            return SituacaoCandidato.HABILITADO;
-        } else if (normalized.contains("RESERV")) {
-            return SituacaoCandidato.CADASTRO_RESERVA;
-        } else if (normalized.contains("ELIMIN")) {
+        }
+        if ("NAO CLASSIFICADO".equals(normalized)) {
             return SituacaoCandidato.ELIMINADO;
         }
 
-        log.warn("Situação '{}' não pôde ser convertida - usando padrão PENDENTE", str);
+        log.warn("Situação '{}' (normalizado='{}') não é um valor esperado; usando padrão PENDENTE", str, normalized);
         return SituacaoCandidato.PENDENTE;
+    }
+
+    private SituacaoCandidato determinarSituacaoImportacao(String situacaoStr) {
+        if (situacaoStr == null || situacaoStr.isBlank()) {
+            return SituacaoCandidato.PENDENTE;
+        }
+
+        return converterStringSituacao(situacaoStr);
     }
 
     private Candidato mapRowToCandidato(Row r, Map<String, Integer> cols) {
@@ -464,15 +478,19 @@ public class Filtro {
         
         // Converter string de situação para enum SituacaoCandidato
         String situacaoStr = getCellString(r, cols.get("situacao"));
-        SituacaoCandidato situacao = converterStringSituacao(situacaoStr);
+        String situacaoNormalized = normalizeStatusText(situacaoStr);
+        log.debug("Row {}: situacao raw='{}', normalized='{}', col={}", r.getRowNum(), situacaoStr, situacaoNormalized, cols.get("situacao"));
+        SituacaoCandidato situacao = determinarSituacaoImportacao(situacaoStr);
         c.setSituacao(situacao);
-        
-        // Atribuir motivo (se disponível)
-        String motivo = getCellString(r, cols.get("motivo"));
-        if (motivo != null && !motivo.isBlank()) {
-            c.setMotivoNaoClassificacao(motivo);
+
+        // Ler motivo apenas quando a situação for NÃO CLASSIFICADO
+        if (situacao == SituacaoCandidato.ELIMINADO) {
+            String motivo = getCellString(r, cols.get("motivo"));
+            if (motivo != null && !motivo.isBlank()) {
+                c.setMotivoNaoClassificacao(motivo);
+            }
         }
-        
+
         // TipoVaga será definido pela AlocacaoVagaService durante alocação de vagas
 
         log.debug("Candidato mapeado: {} - Gênero: {} - Campus: {}",
@@ -485,6 +503,21 @@ public class Filtro {
     private String safeString(Cell cell) {
         if (cell == null)
             return "";
+        
+        // LOG DE SUPORTE: remova ou comente após descobrir o problema
+        if (log.isDebugEnabled() && cell.getColumnIndex() == 43) {
+            Row rowAtual = cell.getRow();
+            // Pega o valor da coluna anterior (42) e da próxima (44) para ver se o dado mudou de lugar
+            Cell colAnterior = rowAtual.getCell(cell.getColumnIndex() - 1);
+            Cell colProxima = rowAtual.getCell(cell.getColumnIndex() + 1);
+
+            log.debug("Mapeamento na Aba: {} | Candidato: {} | Col 42 (AQ): '{}' | Col 43 (AR - Atual): '{}' | Col 44 (AS): '{}'", 
+                    cell.getSheet().getSheetName(),
+                    rowAtual.getCell(4) != null ? rowAtual.getCell(4).toString() : "Nome ñ encontrado", // Ajuste o 4 para o índice do Nome se necessário
+                    colAnterior,
+                    cell, // O que ele leu como BLANK
+                    colProxima);
+        }
         try {
             DataFormatter fmt = new DataFormatter();
             return fmt.formatCellValue(cell);
@@ -493,12 +526,18 @@ public class Filtro {
         }
     }
 
+
+
     private String getCellString(Row r, Integer idx) {
         if (idx == null)
             return null;
-        Cell c = r.getCell(idx);
+        
+        // Altere esta linha para usar a política de retorno de célula vazia/branca
+        Cell c = r.getCell(idx, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK);
+        
         if (c == null)
             return null;
+            
         String s = safeString(c);
         return s != null ? s.trim() : null;
     }

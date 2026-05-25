@@ -63,6 +63,8 @@ public interface CandidatoRepository extends JpaRepository<Candidato, Long> {
 	    // Para alocação de vagas: buscar candidatos de um campus e edital ordenados por data de inscrição
 	    List<Candidato> findByCampusIdAndEditalIdOrderByDataInscricaoAscHoraInscricaoAsc(Long campusId, Long editalId);
 
+		List<Candidato> findByCampusIdAndEditalIdAndTurnoOrderByDataInscricaoAscHoraInscricaoAsc(Long campusId, Long editalId, String turno);
+
 	    @Query("select distinct c.turno from Candidato c")
 	    List<String> findDistinctTurno();
 

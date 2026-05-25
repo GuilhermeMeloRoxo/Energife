@@ -8,6 +8,7 @@ public enum TipoVaga {
     RESERVADO("Reservado"),
     // Legacy name: some rows in the database still store RESERVADA
     RESERVADA("Reservada"),
+    CADASTRO_RESERVA("Cadastro de Reserva"),
     // Legacy/older DB value for open competition
     AMPLA_CONCORRENCIA("Ampla Concorrência");
     
@@ -30,7 +31,7 @@ public enum TipoVaga {
     }
 
     public boolean isReservado() {
-        return this == RESERVADO || this == RESERVADA;
+        return this == RESERVADO || this == RESERVADA || this == CADASTRO_RESERVA;
     }
 
     public boolean isMasculino() {
@@ -50,6 +51,6 @@ public enum TipoVaga {
                 }
             }
         }
-        return RESERVADO;
+        return RESERVADA;
     }
 }

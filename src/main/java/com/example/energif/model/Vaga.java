@@ -49,7 +49,8 @@ public class Vaga {
         }
 
         int classificadosMasculino = totalClassificados - classificadosFeminino;
-        int quota = quotaMulheresClassificadas != null ? quotaMulheresClassificadas : 0;
+        Integer quotaValue = quotaMulheresClassificadas != null ? quotaMulheresClassificadas : Integer.valueOf(0);
+        int quota = quotaValue.intValue();
 
         // Garantir quota mínima de mulheres
         int vagasParaMulheres = Math.max(quota, (int) Math.ceil(quantidade * 0.2)); // Mínimo 20% mulheres
@@ -75,36 +76,36 @@ public class Vaga {
         vagasHabilitadosMasculino = Math.min(habilitadosMasculino, vagasDisponiveisParaHabilitados / 2);
         vagasHabilitadosFeminino = Math.min(habilitadosFeminino, vagasDisponiveisParaHabilitados - vagasHabilitadosMasculino);
 
-        // Resto é para reservados
+        // Resto é para reserva/cadastro de reserva
         vagasReservadas = quantidade - vagasClassificadosMasculino - vagasClassificadosFeminino - vagasHabilitadosMasculino - vagasHabilitadosFeminino;
     }
 
     public boolean temVagaDisponivel(TipoVaga tipo) {
-        if (tipo == TipoVaga.CLASSIFICADO_MASCULINO) {
-            return ocupadasClassificadosMasculino < vagasClassificadosMasculino;
-        } else if (tipo == TipoVaga.CLASSIFICADO_FEMININO) {
-            return ocupadasClassificadosFeminino < vagasClassificadosFeminino;
-        } else if (tipo == TipoVaga.HABILITADO_MASCULINO) {
-            return ocupadasHabilitadosMasculino < vagasHabilitadosMasculino;
-        } else if (tipo == TipoVaga.HABILITADO_FEMININO) {
-            return ocupadasHabilitadosFeminino < vagasHabilitadosFeminino;
-        } else if (tipo == TipoVaga.RESERVADO) {
-            return ocupadasReservadas < vagasReservadas;
+        if (tipo == null) {
+            return false;
         }
-        return false;
+        return switch (tipo) {
+            case CLASSIFICADO_MASCULINO -> ocupadasClassificadosMasculino < vagasClassificadosMasculino;
+            case CLASSIFICADO_FEMININO -> ocupadasClassificadosFeminino < vagasClassificadosFeminino;
+            case HABILITADO_MASCULINO -> ocupadasHabilitadosMasculino < vagasHabilitadosMasculino;
+            case HABILITADO_FEMININO -> ocupadasHabilitadosFeminino < vagasHabilitadosFeminino;
+            case RESERVADO, RESERVADA, CADASTRO_RESERVA -> ocupadasReservadas < vagasReservadas;
+            default -> false;
+        };
     }
 
     public synchronized void preencherVaga(TipoVaga tipo) {
-        if (tipo == TipoVaga.CLASSIFICADO_MASCULINO) {
-            ocupadasClassificadosMasculino++;
-        } else if (tipo == TipoVaga.CLASSIFICADO_FEMININO) {
-            ocupadasClassificadosFeminino++;
-        } else if (tipo == TipoVaga.HABILITADO_MASCULINO) {
-            ocupadasHabilitadosMasculino++;
-        } else if (tipo == TipoVaga.HABILITADO_FEMININO) {
-            ocupadasHabilitadosFeminino++;
-        } else if (tipo == TipoVaga.RESERVADO) {
-            ocupadasReservadas++;
+        if (tipo == null) {
+            return;
+        }
+        switch (tipo) {
+            case CLASSIFICADO_MASCULINO -> ocupadasClassificadosMasculino++;
+            case CLASSIFICADO_FEMININO -> ocupadasClassificadosFeminino++;
+            case HABILITADO_MASCULINO -> ocupadasHabilitadosMasculino++;
+            case HABILITADO_FEMININO -> ocupadasHabilitadosFeminino++;
+            case RESERVADO, RESERVADA, CADASTRO_RESERVA -> ocupadasReservadas++;
+            default -> {
+            }
         }
     }
 
