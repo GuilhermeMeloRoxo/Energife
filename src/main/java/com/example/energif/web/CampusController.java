@@ -20,8 +20,11 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.example.energif.model.Campus;
 import com.example.energif.model.CampusEditalTurno;
+import com.example.energif.model.Vaga;
 import com.example.energif.repository.CampusRepository;
 import com.example.energif.repository.CampusEditalTurnoRepository;
+import com.example.energif.repository.VagaRepository;
+import com.example.energif.service.AlocacaoVagaService;
 
 @Controller
 @RequestMapping("/campus")
@@ -32,13 +35,19 @@ public class CampusController {
     private final CampusRepository campusRepository;
     private final com.example.energif.repository.CampusEditalRepository campusEditalRepository;
     private final CampusEditalTurnoRepository campusEditalTurnoRepository;
+    private final VagaRepository vagaRepository;
+    private final AlocacaoVagaService alocacaoVagaService;
 
     public CampusController(CampusRepository campusRepository,
             com.example.energif.repository.CampusEditalRepository campusEditalRepository,
-            CampusEditalTurnoRepository campusEditalTurnoRepository) {
+            CampusEditalTurnoRepository campusEditalTurnoRepository,
+            VagaRepository vagaRepository,
+            AlocacaoVagaService alocacaoVagaService) {
         this.campusRepository = campusRepository;
         this.campusEditalRepository = campusEditalRepository;
         this.campusEditalTurnoRepository = campusEditalTurnoRepository;
+        this.vagaRepository = vagaRepository;
+        this.alocacaoVagaService = alocacaoVagaService;
     }
 
     @GetMapping("/novo")
@@ -261,4 +270,11 @@ public class CampusController {
             return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));
         }
     }
+
+    @PostMapping("/alocar-todas")
+    public String alocarTodasVagas() {
+        alocacaoVagaService.alocarTodosCampus();
+        return "redirect:/campus"; // Altere para a rota correta da sua página
+    }
+
 }

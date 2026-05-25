@@ -4,11 +4,14 @@ import com.example.energif.model.Candidato;
 import com.example.energif.model.SituacaoCandidato;
 import com.example.energif.model.TipoVaga;
 import com.example.energif.model.Vaga;
-import com.example.energif.model.Genero;
 import com.example.energif.repository.CandidatoRepository;
+import com.example.energif.repository.VagaRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class AlocacaoVagaService {
@@ -16,129 +19,100 @@ public class AlocacaoVagaService {
     @Autowired
     private CandidatoRepository candidatoRepository;
 
+    @Autowired
+    private VagaRepository vagaRepository;
+
     /**
-     * Aloca vagas para candidatos conforme sua ordem de inscrição, situação e gênero
-     * Respeitando quotas de mulheres
+     * Aloca as vagas de TODOS os campus de uma única vez (Botão Global)
+     */
+    public void alocarTodosCampus() {
+        List<Vaga> vagas = vagaRepository.findAll();
+        for (Vaga vaga : vagas) {
+            processarAlocacaoVagas(vaga);
+        }
+    }
+
+    /**
+     * Processa a alocação separando os candidatos pelos seus respectivos turnos
      */
     public void processarAlocacaoVagas(Vaga vaga) {
         if (vaga == null || vaga.getQuantidade() == null || vaga.getQuantidade() <= 0) {
             return;
         }
+        if (vaga.getCampus() == null || vaga.getEdital() == null) {
+            return;
+        }
 
-        // Buscar candidatos ordenados por data de inscrição
-        List<Candidato> candidatos = candidatoRepository.findByCampusIdAndEditalIdOrderByDataInscricaoAscHoraInscricaoAsc(
+        // Busca todos os candidatos do Campus e Edital
+        List<Candidato> todosCandidatos = candidatoRepository.findByCampusIdAndEditalIdOrderByDataInscricaoAscHoraInscricaoAsc(
                 vaga.getCampus().getId(),
                 vaga.getEdital().getId()
         );
 
-        if (candidatos.isEmpty()) {
+        if (todosCandidatos.isEmpty()) {
             return;
         }
 
-        // Contar candidatos por situação e gênero
-        int totalClassificados = 0;
-        int classificadosFeminino = 0;
-        int totalHabilitados = 0;
+        // CORREÇÃO: Agrupa os candidatos pelo turno deles (Ex: "Manhã", "Tarde", "Noite")
+        // Certifique-se de que o candidato possui o método getTurno() ou correspondente
+        Map<String, List<Candidato>> candidatosPorTurno = todosCandidatos.stream()
+                .filter(c -> c.getTurno() != null)
+                .collect(Collectors.groupingBy(Candidato::getTurno));
 
-        for (Candidato c : candidatos) {
-            if (c.getSituacao() == SituacaoCandidato.CLASSIFICADO) {
-                totalClassificados++;
-                if (Genero.FEMININO.getCodigo().equals(c.getGenero())) {
-                    classificadosFeminino++;
+        // Processa as regras de negócio de vagas de forma isolada para cada turno encontrado
+        for (Map.Entry<String, List<Candidato>> entry : candidatosPorTurno.entrySet()) {
+            List<Candidato> candidatosDoTurno = entry.getValue();
+
+            int quantidade = vaga.getQuantidade(); 
+            int vagasReservadas = Math.max(1, (int) Math.ceil(quantidade * 0.2));
+
+            List<Candidato> elegiveis = candidatosDoTurno.stream()
+                    .filter(c -> c.getSituacao() != SituacaoCandidato.ELIMINADO)
+                    .collect(Collectors.toList());
+
+            // 1. Vagas Reservadas (Mulheres)
+            List<Candidato> classificadasReservadas = new ArrayList<>();
+            for (Candidato candidato : elegiveis) {
+                if (classificadasReservadas.size() >= vagasReservadas) {
+                    break;
                 }
-            } else if (c.getSituacao() == SituacaoCandidato.HABILITADO) {
-                totalHabilitados++;
+                if (candidato.getGenero() != null && Character.toUpperCase(candidato.getGenero()) == 'F') {
+                    classificadasReservadas.add(candidato);
+                }
+            }
+
+            // 2. Ampla Concorrência (Homens)
+            int vagasAmplaConcorrencia = Math.max(0, quantidade - vagasReservadas);
+            List<Candidato> classificadasAmpla = new ArrayList<>();
+            for (Candidato candidato : elegiveis) {
+                if (classificadasAmpla.size() >= vagasAmplaConcorrencia) {
+                    break;
+                }
+                if (candidato.getGenero() != null && Character.toUpperCase(candidato.getGenero()) == 'M') {
+                    classificadasAmpla.add(candidato);
+                }
+            }
+
+            // 3. Aplica as regras de situação do candidato
+            for (Candidato candidato : elegiveis) {
+                if (classificadasReservadas.contains(candidato)) {
+                    candidato.setSituacao(SituacaoCandidato.CLASSIFICADO);
+                    candidato.setTipoVaga(TipoVaga.RESERVADO);
+                } else if (classificadasAmpla.contains(candidato)) {
+                    candidato.setSituacao(SituacaoCandidato.CLASSIFICADO);
+                    candidato.setTipoVaga(TipoVaga.AMPLA_CONCORRENCIA);
+                } else {
+                    candidato.setSituacao(SituacaoCandidato.HABILITADO);
+                    if (candidato.getGenero() != null && Character.toUpperCase(candidato.getGenero()) == 'F') {
+                        candidato.setTipoVaga(TipoVaga.HABILITADO_FEMININO);
+                    } else {
+                        candidato.setTipoVaga(TipoVaga.HABILITADO_MASCULINO);
+                    }
+                }
             }
         }
 
-        // Alocar vagas dinamicamente
-        vaga.alocarVagas(totalClassificados, classificadosFeminino, totalHabilitados);
-
-        // Processar candidatos em ordem de inscrição e atribuir tipo de vaga
-        int contadorClassificadosMasc = 0;
-        int contadorClassificadosFem = 0;
-        int contadorHabilitadosMasc = 0;
-        int contadorHabilitadosFem = 0;
-        int contadorReservados = 0;
-
-        for (Candidato candidato : candidatos) {
-            TipoVaga tipoVagaAtribuido = null;
-            
-            // Classificados têm prioridade
-            if (candidato.getSituacao() == SituacaoCandidato.CLASSIFICADO) {
-                if (Genero.FEMININO.getCodigo().equals(candidato.getGenero())) {
-                    // Mulher classificada
-                    if (contadorClassificadosFem < vaga.getVagasClassificadosFeminino()) {
-                        tipoVagaAtribuido = TipoVaga.CLASSIFICADO_FEMININO;
-                        contadorClassificadosFem++;
-                    }
-                } else {
-                    // Homem classificado
-                    if (contadorClassificadosMasc < vaga.getVagasClassificadosMasculino()) {
-                        tipoVagaAtribuido = TipoVaga.CLASSIFICADO_MASCULINO;
-                        contadorClassificadosMasc++;
-                    }
-                }
-
-                // Se não conseguiu vaga classificado, tenta habilitado
-                if (tipoVagaAtribuido == null) {
-                    if (Genero.FEMININO.getCodigo().equals(candidato.getGenero())) {
-                        if (contadorHabilitadosFem < vaga.getVagasHabilitadosFeminino()) {
-                            tipoVagaAtribuido = TipoVaga.HABILITADO_FEMININO;
-                            contadorHabilitadosFem++;
-                            candidato.setSituacao(SituacaoCandidato.HABILITADO);
-                        }
-                    } else {
-                        if (contadorHabilitadosMasc < vaga.getVagasHabilitadosMasculino()) {
-                            tipoVagaAtribuido = TipoVaga.HABILITADO_MASCULINO;
-                            contadorHabilitadosMasc++;
-                            candidato.setSituacao(SituacaoCandidato.HABILITADO);
-                        }
-                    }
-                }
-
-                // Se ainda não teve vaga, fica em reservado
-                if (tipoVagaAtribuido == null) {
-                    if (contadorReservados < vaga.getVagasReservadas()) {
-                        tipoVagaAtribuido = TipoVaga.RESERVADO;
-                        contadorReservados++;
-                        candidato.setSituacao(SituacaoCandidato.HABILITADO);
-                    } else {
-                        candidato.setSituacao(SituacaoCandidato.PENDENTE);
-                        tipoVagaAtribuido = null;
-                    }
-                }
-            } else if (candidato.getSituacao() == SituacaoCandidato.HABILITADO) {
-                // Habilitados ocupam vagas de habilitados se disponível
-                if (Genero.FEMININO.getCodigo().equals(candidato.getGenero())) {
-                    if (contadorHabilitadosFem < vaga.getVagasHabilitadosFeminino()) {
-                        tipoVagaAtribuido = TipoVaga.HABILITADO_FEMININO;
-                        contadorHabilitadosFem++;
-                    }
-                } else {
-                    if (contadorHabilitadosMasc < vaga.getVagasHabilitadosMasculino()) {
-                        tipoVagaAtribuido = TipoVaga.HABILITADO_MASCULINO;
-                        contadorHabilitadosMasc++;
-                    }
-                }
-
-                // Se não tem vaga de habilitado, tenta reservado
-                if (tipoVagaAtribuido == null) {
-                    if (contadorReservados < vaga.getVagasReservadas()) {
-                        tipoVagaAtribuido = TipoVaga.RESERVADO;
-                        contadorReservados++;
-                    }
-                }
-            }
-
-            // Atribuir tipo de vaga ao candidato
-            if (tipoVagaAtribuido != null) {
-                candidato.setTipoVaga(tipoVagaAtribuido);
-                vaga.preencherVaga(tipoVagaAtribuido);
-            }
-        }
-
-        // Salvar candidatos com as novas alocações
-        candidatoRepository.saveAll(candidatos);
+        // Salva todos de uma vez
+        candidatoRepository.saveAll(todosCandidatos);
     }
 }
