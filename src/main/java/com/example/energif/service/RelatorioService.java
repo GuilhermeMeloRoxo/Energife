@@ -70,12 +70,14 @@ public class RelatorioService {
                     () -> new java.util.LinkedHashMap<String, List<Candidato>>(),
                     java.util.stream.Collectors.toList()));
 
-            for (Map.Entry<String, List<Candidato>> turnoEntry : byTurno.entrySet()) {
+                for (Map.Entry<String, List<Candidato>> turnoEntry : byTurno.entrySet().stream()
+                    .sorted((e1, e2) -> compararTurnos(e1.getKey(), e2.getKey()))
+                    .toList()) {
                 String turnoName = turnoEntry.getKey();
                 
                 PdfPTable infoTable = new PdfPTable(1);
                 infoTable.setWidthPercentage(100);
-                String subTituloTexto = "Campus " + campusName + " - " + turnoName;
+                String subTituloTexto = campusName + " - " + turnoName;
                 PdfPCell infoCell = new PdfPCell(new Phrase(subTituloTexto, subTitleFont));
                 infoCell.setBackgroundColor(CINZA_CABECALHO);
                 infoCell.setHorizontalAlignment(Element.ALIGN_CENTER);
@@ -128,7 +130,7 @@ public class RelatorioService {
                     table.addCell(cellNome);
 
                     String classifText = "-";
-                    if (c.getSituacao() == SituacaoCandidato.CLASSIFICADO) {
+                    if (c.getSituacao() == SituacaoCandidato.CLASSIFICADO || c.getSituacao() == SituacaoCandidato.HABILITADO) {
                         rank++;
                         classifText = rank + "º";
                     }
@@ -209,7 +211,9 @@ public class RelatorioService {
                     () -> new java.util.LinkedHashMap<String, List<Candidato>>(),
                     java.util.stream.Collectors.toList()));
 
-            for (Map.Entry<String, List<Candidato>> turnoEntry : byTurno.entrySet()) {
+                for (Map.Entry<String, List<Candidato>> turnoEntry : byTurno.entrySet().stream()
+                    .sorted((e1, e2) -> compararTurnos(e1.getKey(), e2.getKey()))
+                    .toList()) {
                 String turnoName = turnoEntry.getKey();
                 List<Candidato> candidatosTurno = turnoEntry.getValue();
 
@@ -247,7 +251,7 @@ public class RelatorioService {
 
                 PdfPTable infoTable = new PdfPTable(1);
                 infoTable.setWidthPercentage(100);
-                String subTituloTexto = "Campus " + campusName + " - " + turnoName;
+                String subTituloTexto = campusName + " - " + turnoName;
                 PdfPCell infoCell = new PdfPCell(new Phrase(subTituloTexto, subTitleFont));
                 infoCell.setBackgroundColor(CINZA_CABECALHO);
                 infoCell.setHorizontalAlignment(Element.ALIGN_CENTER);
@@ -300,7 +304,7 @@ public class RelatorioService {
                     table.addCell(cellNome);
 
                     String classifText = "-";
-                    if (c.getSituacao() == SituacaoCandidato.CLASSIFICADO) {
+                    if (c.getSituacao() == SituacaoCandidato.CLASSIFICADO || c.getSituacao() == SituacaoCandidato.HABILITADO) {
                         rank++;
                         classifText = rank + "º";
                     }
@@ -357,5 +361,27 @@ public class RelatorioService {
         String resto = trimmed.substring(1).toLowerCase(PT_BR);
         
         return "Turno da " + primeiraLetra + resto;
+    }
+
+    private int compararTurnos(String turno1, String turno2) {
+        return Integer.compare(getOrdemTurno(turno1), getOrdemTurno(turno2));
+    }
+
+    private int getOrdemTurno(String turno) {
+        if (turno == null) {
+            return 999;
+        }
+
+        String turnoNormalizado = turno.toLowerCase(PT_BR);
+        if (turnoNormalizado.contains("manhã") || turnoNormalizado.contains("manha")) {
+            return 1;
+        }
+        if (turnoNormalizado.contains("tarde")) {
+            return 2;
+        }
+        if (turnoNormalizado.contains("noite")) {
+            return 3;
+        }
+        return 999;
     }
 }

@@ -1,6 +1,8 @@
 package com.example.energif.web;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -14,16 +16,16 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.example.energif.model.Campus;
+import com.example.energif.model.CampusEdital;
 import com.example.energif.model.CampusEditalTurno;
-import com.example.energif.model.Vaga;
-import com.example.energif.repository.CampusRepository;
 import com.example.energif.repository.CampusEditalTurnoRepository;
-import com.example.energif.repository.VagaRepository;
+import com.example.energif.repository.CampusRepository;
 import com.example.energif.service.AlocacaoVagaService;
 
 @Controller
@@ -35,19 +37,19 @@ public class CampusController {
     private final CampusRepository campusRepository;
     private final com.example.energif.repository.CampusEditalRepository campusEditalRepository;
     private final CampusEditalTurnoRepository campusEditalTurnoRepository;
-    private final VagaRepository vagaRepository;
     private final AlocacaoVagaService alocacaoVagaService;
+    private final com.example.energif.repository.CandidatoRepository candidatoRepository;
 
     public CampusController(CampusRepository campusRepository,
             com.example.energif.repository.CampusEditalRepository campusEditalRepository,
             CampusEditalTurnoRepository campusEditalTurnoRepository,
-            VagaRepository vagaRepository,
-            AlocacaoVagaService alocacaoVagaService) {
+            AlocacaoVagaService alocacaoVagaService,
+            com.example.energif.repository.CandidatoRepository candidatoRepository) {
         this.campusRepository = campusRepository;
         this.campusEditalRepository = campusEditalRepository;
         this.campusEditalTurnoRepository = campusEditalTurnoRepository;
-        this.vagaRepository = vagaRepository;
         this.alocacaoVagaService = alocacaoVagaService;
+        this.candidatoRepository = candidatoRepository;
     }
 
     @GetMapping("/novo")
@@ -57,60 +59,87 @@ public class CampusController {
         return "cadastro-campus";
     }
 
-    // No CampusController - método listarCampus:
-    // Agora busca CampusEditalTurno para exibir linhas separadas por turno
     @GetMapping("/list")
     public String listarCampus(Model model) {
+        var allCampuses = campusRepository.findAll(Sort.by("nome"));
+        
         var turnos = campusEditalRepository.findAll()
                 .stream()
-                .flatMap(ce -> java.util.Optional.ofNullable(ce.getTurnos()).orElse(java.util.Collections.emptyList())
-                        .stream()
-                        .map(t -> Map.ofEntries(
-                                Map.entry("id", t.getId()),
-                                Map.entry("campusId", ce.getCampus().getId()),
-                                Map.entry("campusNome", ce.getCampus().getNome()),
-                                Map.entry("editalId", ce.getEdital() != null ? ce.getEdital().getId() : null),
-                                Map.entry("editalDescricao",
-                                        ce.getEdital() != null && ce.getEdital().getDescricao() != null
-                                                ? ce.getEdital().getDescricao()
-                                                : "Sem Edital"),
-                                Map.entry("turno", t.getTurno()),
-                                Map.entry("numeroVagasReservadas", t.getNumeroVagasReservadas()),
-                                Map.entry("numeroVagasAmplaConcorrencia", t.getNumeroVagasAmplaConcorrencia()),
-                                Map.entry("numeroVagasClassificado", t.getNumeroVagasClassificado()),
-                                Map.entry("numeroVagasHabilitado", t.getNumeroVagasHabilitado()),
-                                Map.entry("numeroVagasCadastroReserva", t.getNumeroVagasCadastroReserva()),
-                                Map.entry("vagasReservadasOcupadas", t.getVagasReservadasOcupadas()),
-                                Map.entry("vagasAmplaOcupadas", t.getVagasAmplaOcupadas()),
-                                Map.entry("vagasClassificadoOcupadas", t.getVagasClassificadoOcupadas()),
-                                Map.entry("vagasHabilitadoOcupadas", t.getVagasHabilitadoOcupadas()),
-                                Map.entry("vagasReservadasDisponiveis", t.getVagasReservadasDisponiveis()),
-                                Map.entry("vagasAmplaDisponiveis", t.getVagasAmplaDisponiveis()),
-                                Map.entry("vagasClassificadoDisponiveis", t.getVagasClassificadoDisponiveis()),
-                                Map.entry("vagasHabilitadoDisponiveis", t.getVagasHabilitadoDisponiveis()),
-                                Map.entry("campusEditalTurnoId", t.getId()))))
+                .flatMap(ce -> {
+                    if (ce.getCampus() == null) {
+                        return java.util.stream.Stream.empty();
+                    }
+                        return java.util.Optional.ofNullable(ce.getTurnos())
+                            .orElse(java.util.Collections.emptyList())
+                            .stream()
+                            .map(t -> {
+                                // Contar candidatos pendentes para este turno
+                                var candidatosPendentes = candidatoRepository
+                                        .findByCampusIdAndEditalIdOrderByDataInscricaoAscHoraInscricaoAsc(
+                                                ce.getCampus().getId(),
+                                                ce.getEdital().getId())
+                                        .stream()
+                                        .filter(c -> t.getTurno().equals(c.getTurno()) && 
+                                                    c.getSituacao() == com.example.energif.model.SituacaoCandidato.PENDENTE)
+                                        .count();
+                                return TurnoView.from(ce, t, (int) candidatosPendentes);
+                            });
+                })
                 .sorted((a, b) -> {
-                    int cmpCampus = Objects.toString(a.get("campusNome"), "")
-                            .compareTo(Objects.toString(b.get("campusNome"), ""));
+                    int cmpCampus = Objects.toString(a.getCampusNome(), "")
+                        .compareTo(Objects.toString(b.getCampusNome(), ""));
                     if (cmpCampus != 0)
                         return cmpCampus;
-                    int cmpEdital = Objects.toString(a.get("editalDescricao"), "")
-                            .compareTo(Objects.toString(b.get("editalDescricao"), ""));
+                    int cmpEdital = Objects.toString(a.getEditalDescricao(), "")
+                        .compareTo(Objects.toString(b.getEditalDescricao(), ""));
                     if (cmpEdital != 0)
                         return cmpEdital;
-                    return Objects.toString(a.get("turno"), "").compareTo(Objects.toString(b.get("turno"), ""));
+                    return Objects.toString(a.getTurno(), "").compareTo(Objects.toString(b.getTurno(), ""));
                 })
                 .toList();
 
+        var campusGrupos = montarCampusGrupos(allCampuses, turnos);
+
         model.addAttribute("turnos", turnos);
-        model.addAttribute("campuses", campusRepository.findAll(Sort.by("nome")));
+        model.addAttribute("campuses", allCampuses);
+        model.addAttribute("campusGrupos", campusGrupos);
         return "lista-campus";
+    }
+
+    private List<CampusGrupoView> montarCampusGrupos(List<Campus> campuses, List<TurnoView> turnos) {
+        var campusGrupos = new ArrayList<CampusGrupoView>();
+        for (var campus : campuses) {
+            var turnosDoCampus = turnos.stream()
+                    .filter(turno -> Objects.equals(turno.getCampusId(), campus.getId()))
+                    .sorted(this::compararTurnos)
+                    .toList();
+            campusGrupos.add(new CampusGrupoView(campus, turnosDoCampus));
+        }
+        return campusGrupos;
+    }
+
+    private int compararTurnos(TurnoView turno1, TurnoView turno2) {
+        int ordem1 = getOrdenTurno(turno1.getTurno());
+        int ordem2 = getOrdenTurno(turno2.getTurno());
+        return Integer.compare(ordem1, ordem2);
+    }
+
+    private int getOrdenTurno(String turno) {
+        if (turno == null) return 999;
+        String turnoNormalizado = turno.trim().toLowerCase();
+        if (turnoNormalizado.contains("manhã") || turnoNormalizado.contains("manha")) {
+            return 1;
+        } else if (turnoNormalizado.contains("tarde")) {
+            return 2;
+        } else if (turnoNormalizado.contains("noite")) {
+            return 3;
+        }
+        return 999;
     }
 
     @PostMapping
     public String criar(@ModelAttribute Campus campus) {
         logger.info("Criando campus: {}", campus.getNome());
-        // avoid duplicates: if a campus with same nome exists, update numbers instead
         Campus existing = campusRepository.findByNome(campus.getNome());
         if (existing != null) {
             existing.setNumeroVagasAmplaConcorrencia(campus.getNumeroVagasAmplaConcorrencia());
@@ -125,11 +154,9 @@ public class CampusController {
         return "redirect:/campus/novo?success";
     }
 
-    // CORREÇÃO: Usar @PathVariable em vez de @RequestParam
-    // No CampusController - adicione estes métodos:
     @PostMapping("/{id}/editar-ajax")
     @ResponseBody
-        public ResponseEntity<Map<String, Object>> editarCampusAjax(@PathVariable("id") Long id,
+    public ResponseEntity<Map<String, Object>> editarCampusAjax(@PathVariable("id") Long id,
             @RequestParam Integer numeroVagasReservadas,
             @RequestParam Integer numeroVagasAmplaConcorrencia,
             @RequestParam(required = false, defaultValue = "0") Integer numeroVagasCadastroReserva,
@@ -271,10 +298,147 @@ public class CampusController {
         }
     }
 
-    @PostMapping("/alocar-todas")
-    public String alocarTodasVagas() {
-        alocacaoVagaService.alocarTodosCampus();
-        return "redirect:/campus"; // Altere para a rota correta da sua página
+    @PostMapping("/alocar-vagas-lote")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> alocarVagasLote(@RequestBody List<Map<String, Object>> dadosVagas) {
+        logger.info("Recebido {} turnos para alocação de vagas", dadosVagas.size());
+        
+        try {
+            for (Map<String, Object> vaga : dadosVagas) {
+                Long campusEditalTurnoId = ((Number) vaga.get("campusEditalTurnoId")).longValue();
+                Integer quantidade = ((Number) vaga.get("quantidade")).intValue();
+                
+                // Buscar o turno
+                CampusEditalTurno turno = campusEditalTurnoRepository.findById(campusEditalTurnoId)
+                        .orElse(null);
+                
+                if (turno != null && quantidade > 0) {
+                    logger.info("Atualizando vagas para turno ID {} com quantidade {}", campusEditalTurnoId, quantidade);
+                    
+                    int vagasReservadas = Math.max(1, (int) Math.ceil(quantidade * 0.2));
+                    int vagasAmplaConcorrencia = Math.max(0, quantidade - vagasReservadas);
+
+                    // Distribui o total informado entre reservadas (mulheres) e ampla concorrência
+                    turno.setNumeroVagasReservadas(vagasReservadas);
+                    turno.setNumeroVagasAmplaConcorrencia(vagasAmplaConcorrencia);
+                    turno.setNumeroVagasCadastroReserva(0);
+                    turno.setNumeroVagasClassificado(0);
+                    turno.setNumeroVagasHabilitado(0);
+                    campusEditalTurnoRepository.save(turno);
+                    
+                    // Processar a alocação para este turno
+                    alocacaoVagaService.processarAlocacaoVagasPorTurno(turno);
+                }
+            }
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Todas as vagas foram alocadas com sucesso!");
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Erro ao alocar vagas em lote", e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
+    }
+
+    @SuppressWarnings("unused")
+    private static final class CampusGrupoView {
+        private final Campus campus;
+        private final List<TurnoView> turnos;
+
+        private CampusGrupoView(Campus campus, List<TurnoView> turnos) {
+            this.campus = campus;
+            this.turnos = turnos;
+        }
+
+        public Campus getCampus() {
+            return campus;
+        }
+
+        public List<TurnoView> getTurnos() {
+            return turnos;
+        }
+    }
+
+    @SuppressWarnings("unused")
+    private static final class TurnoView {
+        private final Long id;
+        private final Long campusId;
+        private final String campusNome;
+        private final Long editalId;
+        private final String editalDescricao;
+        private final String turno;
+        private final Integer numeroVagasReservadas;
+        private final Integer numeroVagasAmplaConcorrencia;
+        private final Integer vagasReservadasOcupadas;
+        private final Integer vagasAmplaOcupadas;
+        private final Integer vagasReservadasDisponiveis;
+        private final Integer vagasAmplaDisponiveis;
+        private final Long campusEditalTurnoId;
+        private final Integer numeroCandidatosPendentes;
+
+        private TurnoView(Long id, Long campusId, String campusNome, Long editalId, String editalDescricao,
+                String turno, Integer numeroVagasReservadas, Integer numeroVagasAmplaConcorrencia,
+                Integer vagasReservadasOcupadas, Integer vagasAmplaOcupadas,
+                Integer vagasReservadasDisponiveis, Integer vagasAmplaDisponiveis, Long campusEditalTurnoId,
+                Integer numeroCandidatosPendentes) {
+            this.id = id;
+            this.campusId = campusId;
+            this.campusNome = campusNome;
+            this.editalId = editalId;
+            this.editalDescricao = editalDescricao;
+            this.turno = turno;
+            this.numeroVagasReservadas = numeroVagasReservadas;
+            this.numeroVagasAmplaConcorrencia = numeroVagasAmplaConcorrencia;
+            this.vagasReservadasOcupadas = vagasReservadasOcupadas;
+            this.vagasAmplaOcupadas = vagasAmplaOcupadas;
+            this.vagasReservadasDisponiveis = vagasReservadasDisponiveis;
+            this.vagasAmplaDisponiveis = vagasAmplaDisponiveis;
+            this.campusEditalTurnoId = campusEditalTurnoId;
+            this.numeroCandidatosPendentes = numeroCandidatosPendentes;
+        }
+
+        private static TurnoView from(CampusEdital campusEdital, CampusEditalTurno turno, Integer pendentes) {
+            return new TurnoView(
+                    turno.getId(),
+                    campusEdital.getCampus().getId(),
+                    campusEdital.getCampus().getNome(),
+                    campusEdital.getEdital() != null ? campusEdital.getEdital().getId() : null,
+                    campusEdital.getEdital() != null && campusEdital.getEdital().getDescricao() != null
+                            ? campusEdital.getEdital().getDescricao()
+                            : "Sem Edital",
+                    turno.getTurno(),
+                    turno.getNumeroVagasReservadas(),
+                    turno.getNumeroVagasAmplaConcorrencia(),
+                    turno.getVagasReservadasOcupadas(),
+                    turno.getVagasAmplaOcupadas(),
+                    turno.getVagasReservadasDisponiveis(),
+                    turno.getVagasAmplaDisponiveis(),
+                    turno.getId(),
+                    pendentes);
+        }
+
+        public Long getId() { return id; }
+        public Long getCampusId() { return campusId; }
+        public String getCampusNome() { return campusNome; }
+        public Long getEditalId() { return editalId; }
+        public String getEditalDescricao() { return editalDescricao; }
+        public String getTurno() { return turno; }
+        public Integer getNumeroVagasReservadas() { return numeroVagasReservadas; }
+        public Integer getNumeroVagasAmplaConcorrencia() { return numeroVagasAmplaConcorrencia; }
+        public Integer getVagasReservadasOcupadas() { return vagasReservadasOcupadas; }
+        public Integer getVagasAmplaOcupadas() { return vagasAmplaOcupadas; }
+        public Integer getVagasReservadasDisponiveis() { return vagasReservadasDisponiveis; }
+        public Integer getVagasAmplaDisponiveis() { return vagasAmplaDisponiveis; }
+        public Long getCampusEditalTurnoId() { return campusEditalTurnoId; }
+        public Integer getNumeroCandidatosPendentes() { return numeroCandidatosPendentes; }
+        public Integer getTotalVagas() {
+            return getNumeroVagasReservadas() + getNumeroVagasAmplaConcorrencia();
+        }
     }
 
 }

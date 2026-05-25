@@ -491,7 +491,7 @@ public class CandidatoController {
                     return ResponseEntity.ok(resultado);
                 }
 
-                candidato.setTipoVaga(TipoVaga.RESERVADO);
+                candidato.setTipoVaga(TipoVaga.CADASTRO_RESERVA);
                 candidato.setSituacao(SituacaoCandidato.HABILITADO);
                 candidato.setMotivoNaoClassificacao(null);
                 candidatoRepository.save(candidato);

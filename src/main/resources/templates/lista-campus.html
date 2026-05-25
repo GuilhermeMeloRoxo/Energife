@@ -223,6 +223,17 @@
             background-color: #fdeded;
         }
 
+        .campus-group-row td {
+            background: #34495e !important;
+            color: white;
+            font-weight: 700;
+            text-align: left;
+        }
+
+        .campus-group-row .muted {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
         /* ===== BADGES DE STATUS ===== */
         .status-badge span {
             padding: 5px 0px;
@@ -319,12 +330,6 @@
             display: none;
         }
 
-        .actions {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
         /* ===== INFORMAÇÕES SOBRE VAGAS ===== */
         .vaga-info {
             display: flex;
@@ -391,7 +396,10 @@
         }
 
         strong {
-            color: #2c3e50;
+            color: black;
+        }
+        .header {
+            color: white;
         }
 
         /* ===== ANIMAÇÕES ===== */
@@ -509,11 +517,7 @@
             <div class="stat-label">Vagas Ampla Concorrência Totais</div>
         </div>
         <div class="stat-card">
-            <div class="stat-number" id="totalCadastroReserva" th:text="${turnos.isEmpty() ? 0 : #aggregates.sum(turnos.![numeroVagasCadastroReserva])}">0</div>
-            <div class="stat-label">Cadastro de Reserva Totais</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-number" id="totalGeral" th:text="${turnos.isEmpty() ? 0 : #aggregates.sum(turnos.![numeroVagasReservadas + numeroVagasAmplaConcorrencia + numeroVagasClassificado + numeroVagasHabilitado + numeroVagasCadastroReserva])}">0</div>
+            <div class="stat-number" id="totalGeral" th:text="${turnos.isEmpty() ? 0 : #aggregates.sum(turnos.![numeroVagasReservadas + numeroVagasAmplaConcorrencia])}">0</div>
             <div class="stat-label">Total de Vagas</div>
         </div>
     </div>
@@ -528,111 +532,100 @@
                     <th>Turno</th>
                     <th>Vagas Reservadas para Mulheres</th>
                     <th>Vagas Ampla Concorrência</th>
-                    <th>Vagas Classificado</th>
-                    <th>Vagas Habilitado</th>
-                    <th>Cadastro de Reserva</th>
                     <th>Total de Vagas</th>
                     <th>Status</th>
-                    <th>Ações</th>
                 </tr>
                 </thead>
                 <tbody id="campusTableBody">
-                <tr th:each="turno : ${turnos}" th:id="'turno-row-' + ${turno.campusEditalTurnoId}" class="campus-row">
-                    <td>
-                        <strong th:text="${turno.campusNome}">Nome do Campus</strong>
-                    </td>
-                    <td>
-                        <span th:text="${turno.editalDescricao}">Descrição Edital</span>
-                    </td>
-                    <td>
-                        <span th:text="${turno.turno}">Turno</span>
-                    </td>
-                    <td>
-                        <div>
-                            <span th:id="'vagas-reservadas-ocupadas-' + ${turno.campusEditalTurnoId}" th:text="${turno.vagasReservadasOcupadas}">0</span> / 
-                            <span th:id="'vagas-reservadas-total-' + ${turno.campusEditalTurnoId}" th:text="${turno.numeroVagasReservadas}">0</span>
-                            <div class="muted" style="font-size: 0.8rem;">
-                                <span th:id="'vagas-reservadas-disponiveis-' + ${turno.campusEditalTurnoId}" th:text="${turno.vagasReservadasDisponiveis}">0</span> disponíveis
-                            </div>
-                        </div>
-                    </td>
-                    <td>
-                        <div>
-                            <span th:id="'vagas-ampla-ocupadas-' + ${turno.campusEditalTurnoId}" th:text="${turno.vagasAmplaOcupadas}">0</span> / 
-                            <span th:id="'vagas-ampla-total-' + ${turno.campusEditalTurnoId}" th:text="${turno.numeroVagasAmplaConcorrencia}">0</span>
-                            <div class="muted" style="font-size: 0.8rem;">
-                                <span th:id="'vagas-ampla-disponiveis-' + ${turno.campusEditalTurnoId}" th:text="${turno.vagasAmplaDisponiveis}">0</span> disponíveis
-                            </div>
-                        </div>
-                    </td>
-                    <td>
-                        <div>
-                            <span th:id="'vagas-classificado-ocupadas-' + ${turno.campusEditalTurnoId}" th:text="${turno.vagasClassificadoOcupadas}">0</span> / 
-                            <span th:id="'vagas-classificado-total-' + ${turno.campusEditalTurnoId}" th:text="${turno.numeroVagasClassificado}">0</span>
-                            <div class="muted" style="font-size: 0.8rem;">
-                                <span th:id="'vagas-classificado-disponiveis-' + ${turno.campusEditalTurnoId}" th:text="${turno.vagasClassificadoDisponiveis}">0</span> disponíveis
-                            </div>
-                        </div>
-                    </td>
-                    <td>
-                        <div>
-                            <span th:id="'vagas-habilitado-ocupadas-' + ${turno.campusEditalTurnoId}" th:text="${turno.vagasHabilitadoOcupadas}">0</span> / 
-                            <span th:id="'vagas-habilitado-total-' + ${turno.campusEditalTurnoId}" th:text="${turno.numeroVagasHabilitado}">0</span>
-                            <div class="muted" style="font-size: 0.8rem;">
-                                <span th:id="'vagas-habilitado-disponiveis-' + ${turno.campusEditalTurnoId}" th:text="${turno.vagasHabilitadoDisponiveis}">0</span> disponíveis
-                            </div>
-                        </div>
-                    </td>
-                    <td>
-                        <strong th:id="'vagas-cadastro-total-' + ${turno.campusEditalTurnoId}" th:text="${turno.numeroVagasCadastroReserva}">0</strong>
-                    </td>
-                    <td>
-                        <strong th:id="'total-vagas-' + ${turno.campusEditalTurnoId}" th:text="${turno.numeroVagasReservadas + turno.numeroVagasAmplaConcorrencia + turno.numeroVagasClassificado + turno.numeroVagasHabilitado + turno.numeroVagasCadastroReserva}">0</strong>
-                    </td>
-                    <td>
-                        <span th:id="'status-' + ${turno.campusEditalTurnoId}" class="status-badge">
-                            <span th:if="${turno.vagasReservadasDisponiveis > 0 and turno.vagasAmplaDisponiveis > 0}" 
-                                  class="status-success">Vagas Disponíveis</span>
-                            <span th:if="${(turno.vagasReservadasDisponiveis <= 0 and turno.vagasAmplaDisponiveis > 0) or (turno.vagasReservadasDisponiveis > 0 and turno.vagasAmplaDisponiveis <= 0)}" 
-                                  class="status-warning">Vagas Limitadas</span>
-                            <span th:if="${turno.vagasReservadasDisponiveis <= 0 and turno.vagasAmplaDisponiveis <= 0}" 
-                                  class="status-danger">Sem Vagas</span>
-                        </span>
-                    </td>
-                    <td>
-                        <div class="actions">
-                            <!-- Formulário para alocar vagas com quantidade total -->
-                            <form th:id="'form-alocar-' + ${turno.campusEditalTurnoId}" class="edit-form" style="margin-bottom: 8px;">
-                                <div class="input-group" style="margin-bottom: 8px;">
-                                    <label class="input-label">Total de Vagas</label>
-                                    <!-- Mantivemos o seu input, adicionando a classe 'input-vaga-lote' para o JavaScript localizá-lo -->
-                                    <input type="number" 
-                                        th:id="'input-total-vagas-' + ${turno.campusEditalTurnoId}"
-                                        th:data-id="${turno.campusEditalTurnoId}"
-                                        class="number-input input-vaga-lote" 
-                                        min="1" 
-                                        th:value="${turno.totalVagas}"
-                                        placeholder="Ex: 50"
-                                        required />
+                <th:block th:if="${#lists.isEmpty(campusGrupos)}">
+                    <tr>
+                        <td colspan="7" class="text-center muted">
+                            Nenhum campus cadastrado.
+                            <a th:href="@{/campus/novo}">Cadastre o primeiro campus</a>
+                        </td>
+                    </tr>
+                </th:block>
+                <th:block th:each="campusGrupo : ${campusGrupos}">
+                    <tr class="campus-group-row">
+                        <td colspan="7">
+                            <strong class="header" th:text="${campusGrupo.campus.nome}">Nome do Campus</strong>
+                            <span class="header" style="margin-left: 8px; font-weight: 400;">
+                                <strong class="header" th:text="${#lists.size(campusGrupo.turnos)}">0</strong> turno(s)
+                            </span>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(campusGrupo.turnos)}">
+                        <td colspan="7" class="text-center muted">
+                            Nenhum edital/turno cadastrado para este campus.
+                        </td>
+                    </tr>
+                    <tr th:each="turno : ${campusGrupo.turnos}" th:id="'turno-row-' + ${turno.campusEditalTurnoId}" class="campus-row">
+                        <td>
+                            <strong th:text="${turno.campusNome}">Nome do Campus</strong>
+                        </td>
+                        <td>
+                            <span th:text="${turno.editalDescricao}">Descrição Edital</span>
+                        </td>
+                        <td>
+                            <span th:text="${turno.turno}">Turno</span>
+                        </td>
+                        <td>
+                            <div>
+                                <span th:id="'vagas-reservadas-ocupadas-' + ${turno.campusEditalTurnoId}" th:text="${turno.vagasReservadasOcupadas}">0</span> /
+                                <span th:id="'vagas-reservadas-total-' + ${turno.campusEditalTurnoId}" th:text="${turno.numeroVagasReservadas}">0</span>
+                                <div class="muted" style="font-size: 0.8rem;">
+                                    <span th:id="'vagas-reservadas-disponiveis-' + ${turno.campusEditalTurnoId}" th:text="${turno.vagasReservadasDisponiveis}">0</span> disponíveis
                                 </div>
-                            </form>
-                            
-                            <!-- Botão Excluir com AJAX -->
-                            <button type="button" 
-                                    th:data-id="${turno.campusEditalTurnoId}"
-                                    th:data-nome="${turno.campusNome + ' (' + turno.turno + ')'}"
-                                    class="btn btn-sm btn-danger btn-excluir">
-                                Excluir
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-                <tr th:if="${#lists.isEmpty(turnos)}">
-                    <td colspan="11" class="text-center muted">
-                        Nenhum campus cadastrado. 
-                        <a th:href="@{/campus/novo}">Cadastre o primeiro campus</a>
-                    </td>
-                </tr>
+                            </div>
+                        </td>
+                        <td>
+                            <div>
+                                <span th:id="'vagas-ampla-ocupadas-' + ${turno.campusEditalTurnoId}" th:text="${turno.vagasAmplaOcupadas}">0</span> /
+                                <span th:id="'vagas-ampla-total-' + ${turno.campusEditalTurnoId}" th:text="${turno.numeroVagasAmplaConcorrencia}">0</span>
+                                <div class="muted" style="font-size: 0.8rem;">
+                                    <span th:id="'vagas-ampla-disponiveis-' + ${turno.campusEditalTurnoId}" th:text="${turno.vagasAmplaDisponiveis}">0</span> disponíveis
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span th:id="'total-vagas-' + ${turno.campusEditalTurnoId}" th:text="${turno.numeroVagasReservadas + turno.numeroVagasAmplaConcorrencia}">0</span>
+                        </td>
+                        <td>
+                            <div class="status-badge">
+                                <span th:id="'status-' + ${turno.campusEditalTurnoId}"
+                                      th:if="${turno.numeroCandidatosPendentes > 0}"
+                                      class="status-warning">Candidatos pendentes</span>
+                                <span th:id="'status-' + ${turno.campusEditalTurnoId}"
+                                      th:if="${turno.numeroCandidatosPendentes == 0 and (turno.vagasReservadasDisponiveis > 0 or turno.vagasAmplaDisponiveis > 0)}"
+                                      class="status-success">Vagas disponíveis</span>
+                                <span th:id="'status-' + ${turno.campusEditalTurnoId}"
+                                      th:if="${turno.numeroCandidatosPendentes == 0 and turno.vagasReservadasDisponiveis <= 0 and turno.vagasAmplaDisponiveis <= 0}"
+                                      class="status-danger">Vagas preenchidas</span>
+
+                                <form th:id="'form-alocar-' + ${turno.campusEditalTurnoId}" class="edit-form" style="margin-top: 10px;">
+                                    <div class="input-group">
+                                        <label class="input-label">Total de Vagas</label>
+                                        <input type="number"
+                                            th:id="'input-total-vagas-' + ${turno.campusEditalTurnoId}"
+                                            th:data-id="${turno.campusEditalTurnoId}"
+                                            class="number-input input-vaga-lote"
+                                            min="1"
+                                            th:value="${turno.totalVagas}"
+                                            placeholder="Ex: 50"
+                                            required />
+                                    </div>
+                                </form>
+
+                                <button type="button"
+                                        th:data-id="${turno.campusEditalTurnoId}"
+                                        th:data-nome="${turno.campusNome + ' (' + turno.turno + ')'}"
+                                        class="btn btn-sm btn-danger btn-excluir">
+                                    Excluir
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                </th:block>
                 </tbody>
             </table>
         </div>
@@ -729,7 +722,7 @@ async function excluirCampus(campusId, campusNome) {
             if (campusRows.length === 0) {
                 tableBody.innerHTML = `
                     <tr>
-                        <td colspan="10" class="text-center muted">
+                        <td colspan="7" class="text-center muted">
                             Nenhum campus cadastrado. 
                             <a href="/campus/novo">Cadastre o primeiro campus</a>
                         </td>
@@ -757,9 +750,6 @@ async function excluirCampus(campusId, campusNome) {
 function updateEstatisticas() {
     let totalReservadas = 0;
     let totalAmpla = 0;
-    let totalCadastroReserva = 0;
-    let totalClassificado = 0;
-    let totalHabilitado = 0;
     
     const rows = document.querySelectorAll('.campus-row');
     
@@ -767,25 +757,23 @@ function updateEstatisticas() {
         const campusId = row.id.split('-').pop();
         const vagasReservadasTotal = parseInt(document.getElementById('vagas-reservadas-total-' + campusId).textContent) || 0;
         const vagasAmplaTotal = parseInt(document.getElementById('vagas-ampla-total-' + campusId).textContent) || 0;
-        const vagasCadastroReservaTotal = (document.getElementById('vagas-cadastro-total-' + campusId) ? parseInt(document.getElementById('vagas-cadastro-total-' + campusId).textContent) || 0 : 0);
-        const vagasClassificadoTotal = (document.getElementById('vagas-classificado-total-' + campusId) ? parseInt(document.getElementById('vagas-classificado-total-' + campusId).textContent) || 0 : 0);
-        const vagasHabilitadoTotal = (document.getElementById('vagas-habilitado-total-' + campusId) ? parseInt(document.getElementById('vagas-habilitado-total-' + campusId).textContent) || 0 : 0);
         
         totalReservadas += vagasReservadasTotal;
         totalAmpla += vagasAmplaTotal;
-        totalCadastroReserva += vagasCadastroReservaTotal;
-        totalClassificado += vagasClassificadoTotal;
-        totalHabilitado += vagasHabilitadoTotal;
+
+        const totalVagasElement = document.getElementById('total-vagas-' + campusId);
+        if (totalVagasElement) {
+            totalVagasElement.textContent = vagasReservadasTotal + vagasAmplaTotal;
+        }
     });
 
-    const totalGeral = totalReservadas + totalAmpla + totalClassificado + totalHabilitado + totalCadastroReserva;
+    const totalGeral = totalReservadas + totalAmpla;
     const totalCampus = rows.length;
 
     // Atualiza os cartões de estatísticas
     document.querySelector('.stat-card:nth-child(1) .stat-number').textContent = totalCampus;
     document.getElementById('totalReservadas').textContent = totalReservadas;
     document.getElementById('totalAmpla').textContent = totalAmpla;
-    document.getElementById('totalCadastroReserva').textContent = totalCadastroReserva;
     document.getElementById('totalGeral').textContent = totalGeral;
 }
 
