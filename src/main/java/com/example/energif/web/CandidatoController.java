@@ -563,6 +563,7 @@ public class CandidatoController {
                 campusEditalTurnoRepository.save(turnoVagas);
                 
                 cand.setSituacao(SituacaoCandidato.HABILITADO);
+                cand.setTipoVaga(TipoVaga.HABILITADO);
                 cand.setMotivoNaoClassificacao(null);
                 candidatoRepository.save(cand);
                 

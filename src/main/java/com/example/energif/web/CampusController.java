@@ -69,20 +69,30 @@ public class CampusController {
                     if (ce.getCampus() == null) {
                         return java.util.stream.Stream.empty();
                     }
+                var candidatosDoCampusEdital = candidatoRepository
+                    .findByCampusIdAndEditalIdOrderByDataInscricaoAscHoraInscricaoAsc(
+                        ce.getCampus().getId(),
+                        ce.getEdital().getId());
                         return java.util.Optional.ofNullable(ce.getTurnos())
                             .orElse(java.util.Collections.emptyList())
                             .stream()
                             .map(t -> {
-                                // Contar candidatos pendentes para este turno
-                                var candidatosPendentes = candidatoRepository
-                                        .findByCampusIdAndEditalIdOrderByDataInscricaoAscHoraInscricaoAsc(
-                                                ce.getCampus().getId(),
-                                                ce.getEdital().getId())
-                                        .stream()
-                                        .filter(c -> t.getTurno().equals(c.getTurno()) && 
-                                                    c.getSituacao() == com.example.energif.model.SituacaoCandidato.PENDENTE)
-                                        .count();
-                                return TurnoView.from(ce, t, (int) candidatosPendentes);
+                    var candidatosDoTurno = candidatosDoCampusEdital.stream()
+                        .filter(c -> t.getTurno().equals(c.getTurno()))
+                        .toList();
+
+                    int totalCandidatosInscritos = candidatosDoTurno.size();
+                    int candidatosEliminados = (int) candidatosDoTurno.stream()
+                        .filter(c -> c.getSituacao() == com.example.energif.model.SituacaoCandidato.ELIMINADO)
+                        .count();
+                    int candidatosHabilitados = (int) candidatosDoTurno.stream()
+                        .filter(c -> c.getSituacao() == com.example.energif.model.SituacaoCandidato.HABILITADO)
+                        .count();
+                    int candidatosPendentes = (int) candidatosDoTurno.stream()
+                        .filter(c -> c.getSituacao() == com.example.energif.model.SituacaoCandidato.PENDENTE)
+                        .count();
+
+                    return TurnoView.from(ce, t, candidatosPendentes, candidatosEliminados, candidatosHabilitados, totalCandidatosInscritos);
                             });
                 })
                 .sorted((a, b) -> {
@@ -323,7 +333,8 @@ public class CampusController {
                     turno.setNumeroVagasAmplaConcorrencia(vagasAmplaConcorrencia);
                     turno.setNumeroVagasCadastroReserva(0);
                     turno.setNumeroVagasClassificado(0);
-                    turno.setNumeroVagasHabilitado(0);
+                    // NÃO zera numeroVagasHabilitado - será calculado como o restante
+                    turno.setNumeroVagasHabilitado(quantidade);
                     campusEditalTurnoRepository.save(turno);
                     
                     // Processar a alocação para este turno
@@ -380,12 +391,17 @@ public class CampusController {
         private final Integer vagasAmplaDisponiveis;
         private final Long campusEditalTurnoId;
         private final Integer numeroCandidatosPendentes;
+        private final Integer numeroCandidatosEliminados;
+        private final Integer numeroCandidatosHabilitados;
+        private final Integer numeroCandidatosInscritos;
 
         private TurnoView(Long id, Long campusId, String campusNome, Long editalId, String editalDescricao,
                 String turno, Integer numeroVagasReservadas, Integer numeroVagasAmplaConcorrencia,
                 Integer vagasReservadasOcupadas, Integer vagasAmplaOcupadas,
-                Integer vagasReservadasDisponiveis, Integer vagasAmplaDisponiveis, Long campusEditalTurnoId,
-                Integer numeroCandidatosPendentes) {
+            Integer vagasReservadasDisponiveis, Integer vagasAmplaDisponiveis, Long campusEditalTurnoId,
+            Integer numeroCandidatosPendentes, Integer numeroCandidatosEliminados,
+            Integer numeroCandidatosHabilitados,
+            Integer numeroCandidatosInscritos) {
             this.id = id;
             this.campusId = campusId;
             this.campusNome = campusNome;
@@ -400,9 +416,13 @@ public class CampusController {
             this.vagasAmplaDisponiveis = vagasAmplaDisponiveis;
             this.campusEditalTurnoId = campusEditalTurnoId;
             this.numeroCandidatosPendentes = numeroCandidatosPendentes;
+            this.numeroCandidatosEliminados = numeroCandidatosEliminados;
+            this.numeroCandidatosHabilitados = numeroCandidatosHabilitados;
+            this.numeroCandidatosInscritos = numeroCandidatosInscritos;
         }
 
-        private static TurnoView from(CampusEdital campusEdital, CampusEditalTurno turno, Integer pendentes) {
+        private static TurnoView from(CampusEdital campusEdital, CampusEditalTurno turno,
+                Integer pendentes, Integer eliminados, Integer habilitados, Integer inscritos) {
             return new TurnoView(
                     turno.getId(),
                     campusEdital.getCampus().getId(),
@@ -419,7 +439,10 @@ public class CampusController {
                     turno.getVagasReservadasDisponiveis(),
                     turno.getVagasAmplaDisponiveis(),
                     turno.getId(),
-                    pendentes);
+                    pendentes,
+                    eliminados,
+                    habilitados,
+                    inscritos);
         }
 
         public Long getId() { return id; }
@@ -436,6 +459,9 @@ public class CampusController {
         public Integer getVagasAmplaDisponiveis() { return vagasAmplaDisponiveis; }
         public Long getCampusEditalTurnoId() { return campusEditalTurnoId; }
         public Integer getNumeroCandidatosPendentes() { return numeroCandidatosPendentes; }
+        public Integer getNumeroCandidatosEliminados() { return numeroCandidatosEliminados; }
+        public Integer getNumeroCandidatosHabilitados() { return numeroCandidatosHabilitados; }
+        public Integer getNumeroCandidatosInscritos() { return numeroCandidatosInscritos; }
         public Integer getTotalVagas() {
             return getNumeroVagasReservadas() + getNumeroVagasAmplaConcorrencia();
         }

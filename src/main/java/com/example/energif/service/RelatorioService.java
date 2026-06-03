@@ -142,10 +142,7 @@ public class RelatorioService {
                     cellClassif.setBorderWidth(0.5f);
                     table.addCell(cellClassif);
 
-                    String situ = c.getSituacao().getDescricao();
-                    if (c.getMotivoNaoClassificacao() != null && !c.getMotivoNaoClassificacao().isBlank()) {
-                        situ += " - " + c.getMotivoNaoClassificacao();
-                    }
+                    String situ = formatSituacaoParaRelatorio(c);
                     PdfPCell cellSitu = new PdfPCell(new Phrase(situ, normalFont));
                     cellSitu.setHorizontalAlignment(Element.ALIGN_CENTER);
                     cellSitu.setVerticalAlignment(Element.ALIGN_MIDDLE);
@@ -316,10 +313,7 @@ public class RelatorioService {
                     cellClassif.setBorderWidth(0.5f);
                     table.addCell(cellClassif);
 
-                    String situ = c.getSituacao().getDescricao();
-                    if (c.getMotivoNaoClassificacao() != null && !c.getMotivoNaoClassificacao().isBlank()) {
-                        situ += " - " + c.getMotivoNaoClassificacao();
-                    }
+                    String situ = formatSituacaoParaRelatorio(c);
                     PdfPCell cellSitu = new PdfPCell(new Phrase(situ, normalFont));
                     cellSitu.setHorizontalAlignment(Element.ALIGN_CENTER);
                     cellSitu.setVerticalAlignment(Element.ALIGN_MIDDLE);
@@ -383,5 +377,22 @@ public class RelatorioService {
             return 3;
         }
         return 999;
+    }
+
+    private String formatSituacaoParaRelatorio(Candidato candidato) {
+        if (candidato == null || candidato.getSituacao() == null) {
+            return "-";
+        }
+
+        SituacaoCandidato situacao = candidato.getSituacao();
+        String descricao = situacao == SituacaoCandidato.PENDENTE
+                ? SituacaoCandidato.CADASTRO_RESERVA.getDescricao()
+                : situacao.getDescricao();
+
+        if (candidato.getMotivoNaoClassificacao() != null && !candidato.getMotivoNaoClassificacao().isBlank()) {
+            descricao += " - " + candidato.getMotivoNaoClassificacao();
+        }
+
+        return descricao;
     }
 }

@@ -13,7 +13,7 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #8e66ea 0%, #7f4ba2 100%);
             color: #333;
             line-height: 1.6;
             min-height: 100vh;
@@ -85,6 +85,15 @@
             box-shadow: 0 4px 8px rgba(127, 219, 52, 0.3);
         }
 
+        .btn-alocar:disabled,
+        .btn-alocar.is-processing {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+            pointer-events: none;
+        }
+
         .btn-ghost {
             background-color: transparent;
             color: white;
@@ -136,7 +145,7 @@
         }
 
         .stat-card {
-            background: linear-gradient(135deg, #3498db, #2c3e50);
+            background: linear-gradient(135deg, #9e34db, #462c50);
             color: white;
             border-radius: 10px;
             padding: 20px;
@@ -176,7 +185,7 @@
         }
 
         table.styled thead {
-            background-color: #2c3e50;
+            background-color: #462c50;
             color: white;
         }
 
@@ -199,16 +208,16 @@
         }
 
         table.styled tbody tr:nth-child(odd) {
-            background-color: #f2f6fc;
+            background-color: #f9f2fc;
         }
 
         table.styled tbody tr:nth-child(even) {
-            background-color: #d6e6ff;
+            background-color: #e4c7f2;
         }
 
         table.styled tbody tr:hover,
         table.styled tbody tr:hover td {
-            background-color: #c7d6f2;
+            background-color: #d0b0e0;
         }
 
         table.styled tbody tr.updating {
@@ -224,7 +233,7 @@
         }
 
         .campus-group-row td {
-            background: #34495e !important;
+            background: #5d4168 !important;
             color: white;
             font-weight: 700;
             text-align: left;
@@ -366,7 +375,7 @@
         }
 
         /* ===== MENSAGENS DE FEEDBACK ===== */
-        .success-message, .error-message {
+        .success-message, .error-message, .processing-message {
             padding: 15px;
             border-radius: 6px;
             margin-bottom: 20px;
@@ -384,6 +393,12 @@
             background-color: #f8d7da;
             color: #721c24;
             border-left: 4px solid #dc3545;
+        }
+
+        .processing-message {
+            background-color: #fff7e6;
+            color: #63008a;
+            border-left: 4px solid #ac37e2;
         }
 
         /* ===== TEXTOS E UTILITÁRIOS ===== */
@@ -492,15 +507,16 @@
         <div class="toolbar">
             <a th:href="@{/campus/novo}" class="btn btn-primary">Novo Campus</a>
             <a th:href="@{/candidatos/list}" class="btn btn-ghost">Voltar para Lista</a>
-            <a href="javascript:void(0)" id="btn-alocar-todos" class="btn btn-alocar">
+            <button type="button" id="btn-alocar-todos" class="btn btn-alocar">
                 Processar e Alocar Todas as Vagas
-            </a>
+            </button>
         </div>
     </div>
 
     <!-- Mensagens dinâmicas -->
     <div id="successMessage" class="success-message"></div>
     <div id="errorMessage" class="error-message"></div>
+    <div id="processingMessage" class="processing-message">Processando o alocamento de vagas, aguarde.</div>
 
     <!-- Estatísticas Gerais -->
     <div class="stats-grid">
@@ -530,6 +546,9 @@
                     <th>Campus</th>
                     <th>Edital</th>
                     <th>Turno</th>
+                    <th>Total de Inscritos</th>
+                    <th>Eliminados</th>
+                    <th>Habilitados</th>
                     <th>Vagas Reservadas para Mulheres</th>
                     <th>Vagas Ampla Concorrência</th>
                     <th>Total de Vagas</th>
@@ -539,7 +558,7 @@
                 <tbody id="campusTableBody">
                 <th:block th:if="${#lists.isEmpty(campusGrupos)}">
                     <tr>
-                        <td colspan="7" class="text-center muted">
+                        <td colspan="10" class="text-center muted">
                             Nenhum campus cadastrado.
                             <a th:href="@{/campus/novo}">Cadastre o primeiro campus</a>
                         </td>
@@ -547,7 +566,7 @@
                 </th:block>
                 <th:block th:each="campusGrupo : ${campusGrupos}">
                     <tr class="campus-group-row">
-                        <td colspan="7">
+                        <td colspan="10">
                             <strong class="header" th:text="${campusGrupo.campus.nome}">Nome do Campus</strong>
                             <span class="header" style="margin-left: 8px; font-weight: 400;">
                                 <strong class="header" th:text="${#lists.size(campusGrupo.turnos)}">0</strong> turno(s)
@@ -555,7 +574,7 @@
                         </td>
                     </tr>
                     <tr th:if="${#lists.isEmpty(campusGrupo.turnos)}">
-                        <td colspan="7" class="text-center muted">
+                        <td colspan="10" class="text-center muted">
                             Nenhum edital/turno cadastrado para este campus.
                         </td>
                     </tr>
@@ -568,6 +587,30 @@
                         </td>
                         <td>
                             <span th:text="${turno.turno}">Turno</span>
+                        </td>
+                        <td>
+                            <div>
+                                <span th:id="'total-inscritos-' + ${turno.campusEditalTurnoId}" th:text="${turno.numeroCandidatosInscritos}">0</span>
+                                <div class="muted" style="font-size: 0.8rem;">
+                                    inscritos
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div>
+                                <span th:id="'total-eliminados-' + ${turno.campusEditalTurnoId}" th:text="${turno.numeroCandidatosEliminados}">0</span>
+                                <div class="muted" style="font-size: 0.8rem;">
+                                    eliminados
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div>
+                                <span th:id="'total-habilitados-' + ${turno.campusEditalTurnoId}" th:text="${turno.numeroCandidatosHabilitados}">0</span>
+                                <div class="muted" style="font-size: 0.8rem;">
+                                    habilitados
+                                </div>
+                            </div>
                         </td>
                         <td>
                             <div>
@@ -626,6 +669,11 @@
                         </td>
                     </tr>
                 </th:block>
+                <tr th:if="${#lists.isEmpty(campusGrupos)}">
+                    <td colspan="10" class="text-center muted">
+                        Nenhum registro encontrado.
+                    </td>
+                </tr>
                 </tbody>
             </table>
         </div>
@@ -722,7 +770,7 @@ async function excluirCampus(campusId, campusNome) {
             if (campusRows.length === 0) {
                 tableBody.innerHTML = `
                     <tr>
-                        <td colspan="7" class="text-center muted">
+                        <td colspan="10" class="text-center muted">
                             Nenhum campus cadastrado. 
                             <a href="/campus/novo">Cadastre o primeiro campus</a>
                         </td>
@@ -797,6 +845,13 @@ document.addEventListener('DOMContentLoaded', function() {
     updateEstatisticas();
 });
 document.getElementById('btn-alocar-todos').addEventListener('click', function() {
+    const btnAlocarTodos = document.getElementById('btn-alocar-todos');
+    const processingMessage = document.getElementById('processingMessage');
+
+    if (btnAlocarTodos.disabled) {
+        return;
+    }
+
     const dadosVagas = [];
     
     // Captura todos os inputs de vagas da tabela
@@ -818,6 +873,10 @@ document.getElementById('btn-alocar-todos').addEventListener('click', function()
         return;
     }
 
+    btnAlocarTodos.disabled = true;
+    btnAlocarTodos.classList.add('is-processing');
+    processingMessage.style.display = 'block';
+
     // Envia os dados em lote via JSON para o Back-end
     fetch('/campus/alocar-vagas-lote', { 
         method: 'POST',
@@ -831,11 +890,17 @@ document.getElementById('btn-alocar-todos').addEventListener('click', function()
             alert('Todas as vagas foram processadas e alocadas com sucesso!');
             window.location.reload(); // Recarrega a página para atualizar os relatórios na tela
         } else {
+            btnAlocarTodos.disabled = false;
+            btnAlocarTodos.classList.remove('is-processing');
+            processingMessage.style.display = 'none';
             alert('Ocorreu um erro ao processar as vagas.');
         }
     })
     .catch(error => {
         console.error('Erro:', error);
+        btnAlocarTodos.disabled = false;
+        btnAlocarTodos.classList.remove('is-processing');
+        processingMessage.style.display = 'none';
         alert('Erro de comunicação com o servidor.');
     });
 });

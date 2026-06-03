@@ -1,16 +1,10 @@
 package com.example.energif.model;
 
 public enum TipoVaga {
-    CLASSIFICADO_MASCULINO("Classificado - Masculino"),
-    CLASSIFICADO_FEMININO("Classificado - Feminino"),
-    HABILITADO_MASCULINO("Habilitado - Masculino"),
-    HABILITADO_FEMININO("Habilitado - Feminino"),
-    RESERVADO("Reservado"),
-    // Legacy name: some rows in the database still store RESERVADA
     RESERVADA("Reservada"),
     CADASTRO_RESERVA("Cadastro de Reserva"),
-    // Legacy/older DB value for open competition
-    AMPLA_CONCORRENCIA("Ampla Concorrência");
+    AMPLA_CONCORRENCIA("Ampla Concorrência"),
+    HABILITADO("Habilitado");
     
     private final String descricao;
     
@@ -22,28 +16,27 @@ public enum TipoVaga {
         return descricao;
     }
 
-    public boolean isClassificado() {
-        return this == CLASSIFICADO_MASCULINO || this == CLASSIFICADO_FEMININO || this == AMPLA_CONCORRENCIA;
-    }
-
     public boolean isHabilitado() {
-        return this == HABILITADO_MASCULINO || this == HABILITADO_FEMININO;
+        return this == HABILITADO;
     }
 
     public boolean isReservado() {
-        return this == RESERVADO || this == RESERVADA || this == CADASTRO_RESERVA;
-    }
-
-    public boolean isMasculino() {
-        return this == CLASSIFICADO_MASCULINO || this == HABILITADO_MASCULINO;
-    }
-
-    public boolean isFeminino() {
-        return this == CLASSIFICADO_FEMININO || this == HABILITADO_FEMININO;
+        return this == RESERVADA || this == CADASTRO_RESERVA;
     }
     
     public static TipoVaga fromString(String text) {
         if (text != null) {
+            if (text.equalsIgnoreCase("RESERVADO")) {
+                return RESERVADA;
+            }
+            if (text.equalsIgnoreCase("CLASSIFICADO_MASCULINO")
+                    || text.equalsIgnoreCase("CLASSIFICADO_FEMININO")) {
+                return AMPLA_CONCORRENCIA;
+            }
+            if (text.equalsIgnoreCase("HABILITADO_MASCULINO")
+                    || text.equalsIgnoreCase("HABILITADO_FEMININO")) {
+                return HABILITADO;
+            }
             for (TipoVaga tipo : TipoVaga.values()) {
                 if (text.equalsIgnoreCase(tipo.name()) || 
                     text.equalsIgnoreCase(tipo.descricao)) {

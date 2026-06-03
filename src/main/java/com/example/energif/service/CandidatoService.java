@@ -268,6 +268,7 @@ public class CandidatoService {
 
             // Mark candidate as HABILITADO
             candidato.setSituacao(SituacaoCandidato.HABILITADO);
+            candidato.setTipoVaga(TipoVaga.HABILITADO);
             candidato.setMotivoNaoClassificacao(null);
             candidatoRepository.save(candidato);
 

@@ -85,11 +85,9 @@ public class Vaga {
             return false;
         }
         return switch (tipo) {
-            case CLASSIFICADO_MASCULINO -> ocupadasClassificadosMasculino < vagasClassificadosMasculino;
-            case CLASSIFICADO_FEMININO -> ocupadasClassificadosFeminino < vagasClassificadosFeminino;
-            case HABILITADO_MASCULINO -> ocupadasHabilitadosMasculino < vagasHabilitadosMasculino;
-            case HABILITADO_FEMININO -> ocupadasHabilitadosFeminino < vagasHabilitadosFeminino;
-            case RESERVADO, RESERVADA, CADASTRO_RESERVA -> ocupadasReservadas < vagasReservadas;
+            case AMPLA_CONCORRENCIA -> getTotalOcupadasClassificados() < getTotalVagasClassificados();
+            case HABILITADO -> getTotalOcupadasHabilitados() < getTotalVagasHabilitados();
+            case RESERVADA, CADASTRO_RESERVA -> ocupadasReservadas < vagasReservadas;
             default -> false;
         };
     }
@@ -99,14 +97,44 @@ public class Vaga {
             return;
         }
         switch (tipo) {
-            case CLASSIFICADO_MASCULINO -> ocupadasClassificadosMasculino++;
-            case CLASSIFICADO_FEMININO -> ocupadasClassificadosFeminino++;
-            case HABILITADO_MASCULINO -> ocupadasHabilitadosMasculino++;
-            case HABILITADO_FEMININO -> ocupadasHabilitadosFeminino++;
-            case RESERVADO, RESERVADA, CADASTRO_RESERVA -> ocupadasReservadas++;
+            case AMPLA_CONCORRENCIA -> {
+                if (ocupadasClassificadosMasculino < vagasClassificadosMasculino) {
+                    ocupadasClassificadosMasculino++;
+                } else {
+                    ocupadasClassificadosFeminino++;
+                }
+            }
+            case HABILITADO -> {
+                if (ocupadasHabilitadosMasculino < vagasHabilitadosMasculino) {
+                    ocupadasHabilitadosMasculino++;
+                } else {
+                    ocupadasHabilitadosFeminino++;
+                }
+            }
+            case RESERVADA, CADASTRO_RESERVA -> ocupadasReservadas++;
             default -> {
             }
         }
+    }
+
+    private int getTotalVagasClassificados() {
+        return (vagasClassificadosMasculino != null ? vagasClassificadosMasculino : 0)
+                + (vagasClassificadosFeminino != null ? vagasClassificadosFeminino : 0);
+    }
+
+    private int getTotalOcupadasClassificados() {
+        return (ocupadasClassificadosMasculino != null ? ocupadasClassificadosMasculino : 0)
+                + (ocupadasClassificadosFeminino != null ? ocupadasClassificadosFeminino : 0);
+    }
+
+    private int getTotalVagasHabilitados() {
+        return (vagasHabilitadosMasculino != null ? vagasHabilitadosMasculino : 0)
+                + (vagasHabilitadosFeminino != null ? vagasHabilitadosFeminino : 0);
+    }
+
+    private int getTotalOcupadasHabilitados() {
+        return (ocupadasHabilitadosMasculino != null ? ocupadasHabilitadosMasculino : 0)
+                + (ocupadasHabilitadosFeminino != null ? ocupadasHabilitadosFeminino : 0);
     }
 
     public int getTotalOcupadas() {
