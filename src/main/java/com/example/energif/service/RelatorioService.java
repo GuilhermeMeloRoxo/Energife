@@ -23,17 +23,17 @@ import com.lowagie.text.pdf.PdfPTable;
 public class RelatorioService {
 
     // Tons de cinza e definições padrão baseadas no SUAP
-    private static final Color CINZA_CABECALHO = new Color(240, 240, 240);
+    private static final Color CINZA_CABECALHO = new Color(200, 200, 200);
     private static final Color CINZA_LINHA_BORDA = new Color(0, 0, 0); // Linhas pretas finas oficiais
     private static final java.util.Locale PT_BR = new java.util.Locale("pt", "BR");
 
     public void gerarRelatorioPDF(Document doc, List<Campus> campusList, 
                                     Map<Campus, List<Candidato>> grouped, String turno) throws DocumentException {
         
-        Font titleFont = new Font(Font.HELVETICA, 12, Font.BOLD, Color.BLACK);
-        Font headerFont = new Font(Font.HELVETICA, 9, Font.BOLD, Color.BLACK);
-        Font subTitleFont = new Font(Font.HELVETICA, 10, Font.BOLD, Color.BLACK);
-        Font normalFont = new Font(Font.HELVETICA, 8, Font.NORMAL, Color.BLACK);
+        Font titleFont = new Font(Font.HELVETICA, 7, Font.BOLD, Color.BLACK);
+        Font headerFont = new Font(Font.HELVETICA, 7, Font.BOLD, Color.BLACK);
+        Font subTitleFont = new Font(Font.HELVETICA, 6, Font.BOLD, Color.BLACK);
+        Font normalFont = new Font(Font.HELVETICA, 6, Font.NORMAL, Color.BLACK);
 
         PdfPTable titleTable = new PdfPTable(1);
         titleTable.setWidthPercentage(100);
@@ -41,11 +41,12 @@ public class RelatorioService {
         titleCell.setBackgroundColor(CINZA_CABECALHO);
         titleCell.setHorizontalAlignment(Element.ALIGN_CENTER);
         titleCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
-        titleCell.setPadding(6);
+        titleCell.setPadding(2);
         titleCell.setBorderColor(CINZA_LINHA_BORDA);
         titleCell.setBorderWidth(0.5f);
         titleTable.addCell(titleCell);
         doc.add(titleTable);
+        doc.add(Chunk.NEWLINE);
 
         DateTimeFormatter dateF = DateTimeFormatter.ofPattern("dd/MM/yyyy");
         DateTimeFormatter timeF = DateTimeFormatter.ofPattern("HH:mm:ss");
@@ -82,13 +83,13 @@ public class RelatorioService {
                 infoCell.setBackgroundColor(CINZA_CABECALHO);
                 infoCell.setHorizontalAlignment(Element.ALIGN_CENTER);
                 infoCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
-                infoCell.setPadding(5);
+                infoCell.setPadding(2);
                 infoCell.setBorderColor(CINZA_LINHA_BORDA);
                 infoCell.setBorderWidth(0.5f);
                 infoTable.addCell(infoCell);
                 doc.add(infoTable);
 
-                PdfPTable table = new PdfPTable(new float[] { 2.2f, 4.5f, 1.3f, 4f });
+                PdfPTable table = new PdfPTable(new float[] { 3f, 4.5f, 1.5f, 5f });
                 table.setWidthPercentage(100);
 
                 String[] headerTexts = { "Data e Hora da Inscrição", "Nome Completo", "Classificação", "Situação" };
@@ -97,7 +98,7 @@ public class RelatorioService {
                     cell.setBackgroundColor(CINZA_CABECALHO);
                     cell.setHorizontalAlignment(Element.ALIGN_CENTER);
                     cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
-                    cell.setPadding(5);
+                    cell.setPadding(2);
                     cell.setBorderColor(CINZA_LINHA_BORDA);
                     cell.setBorderWidth(0.5f);
                     table.addCell(cell);
@@ -115,7 +116,7 @@ public class RelatorioService {
                     PdfPCell cellData = new PdfPCell(new Phrase(dateTime, normalFont));
                     cellData.setHorizontalAlignment(Element.ALIGN_CENTER);
                     cellData.setVerticalAlignment(Element.ALIGN_MIDDLE);
-                    cellData.setPadding(4);
+                    cellData.setPadding(2);
                     cellData.setBorderColor(CINZA_LINHA_BORDA);
                     cellData.setBorderWidth(0.5f);
                     table.addCell(cellData);
@@ -124,7 +125,7 @@ public class RelatorioService {
                     PdfPCell cellNome = new PdfPCell(new Phrase(nomeUpper, normalFont));
                     cellNome.setHorizontalAlignment(Element.ALIGN_CENTER);
                     cellNome.setVerticalAlignment(Element.ALIGN_MIDDLE);
-                    cellNome.setPadding(4);
+                    cellNome.setPadding(2);
                     cellNome.setBorderColor(CINZA_LINHA_BORDA);
                     cellNome.setBorderWidth(0.5f);
                     table.addCell(cellNome);
@@ -137,7 +138,7 @@ public class RelatorioService {
                     PdfPCell cellClassif = new PdfPCell(new Phrase(classifText, normalFont));
                     cellClassif.setHorizontalAlignment(Element.ALIGN_CENTER);
                     cellClassif.setVerticalAlignment(Element.ALIGN_MIDDLE);
-                    cellClassif.setPadding(4);
+                    cellClassif.setPadding(2);
                     cellClassif.setBorderColor(CINZA_LINHA_BORDA);
                     cellClassif.setBorderWidth(0.5f);
                     table.addCell(cellClassif);
@@ -146,7 +147,7 @@ public class RelatorioService {
                     PdfPCell cellSitu = new PdfPCell(new Phrase(situ, normalFont));
                     cellSitu.setHorizontalAlignment(Element.ALIGN_CENTER);
                     cellSitu.setVerticalAlignment(Element.ALIGN_MIDDLE);
-                    cellSitu.setPadding(4);
+                    cellSitu.setPadding(2);
                     cellSitu.setBorderColor(CINZA_LINHA_BORDA);
                     cellSitu.setBorderWidth(0.5f);
                     table.addCell(cellSitu);
@@ -155,7 +156,7 @@ public class RelatorioService {
                 doc.add(table);
                 doc.add(Chunk.NEWLINE);
             }
-
+            doc.add(Chunk.NEWLINE);
             doc.newPage();
         }
     }
